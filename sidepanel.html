@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sidekick AI</title>
+  <link rel="stylesheet" href="sidepanel.css" />
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-left">
+      <span class="logo">✦</span>
+      <span class="header-title">Sidekick AI</span>
+    </div>
+    <button id="btn-summarize" class="btn-primary" title="このページを要約">
+      <span class="btn-icon">▶</span>
+      <span>要約</span>
+    </button>
+  </header>
+
+  <!-- Page info -->
+  <div id="page-info" class="page-info hidden">
+    <span class="page-favicon" id="page-favicon"></span>
+    <div class="page-meta">
+      <div class="page-title" id="page-title"></div>
+      <div class="page-url" id="page-url"></div>
+    </div>
+  </div>
+
+  <!-- Main content area -->
+  <main id="main">
+
+    <!-- Idle state -->
+    <div id="state-idle" class="state-view">
+      <div class="idle-content">
+        <div class="idle-icon">✦</div>
+        <p class="idle-text">技術ドキュメントを開いて<br>「要約」ボタンを押してください</p>
+        <ul class="idle-sources">
+          <li>GitHub README / Issue / PR</li>
+          <li>arXiv 論文</li>
+          <li>技術ブログ・ドキュメント</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Loading state -->
+    <div id="state-loading" class="state-view hidden">
+      <div class="loading-content">
+        <div class="spinner"></div>
+        <p id="loading-text" class="loading-text">コンテンツを取得中...</p>
+        <div id="download-progress" class="download-progress hidden">
+          <div class="progress-bar">
+            <div id="progress-fill" class="progress-fill"></div>
+          </div>
+          <span id="progress-label" class="progress-label">モデルをダウンロード中...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Error state -->
+    <div id="state-error" class="state-view hidden">
+      <div class="error-content">
+        <div class="error-icon">⚠</div>
+        <p id="error-message" class="error-message"></p>
+        <div id="error-hint" class="error-hint hidden"></div>
+      </div>
+    </div>
+
+    <!-- Result state -->
+    <div id="state-result" class="state-view hidden">
+      <div class="result-cards">
+
+        <div class="result-card card-conclusion">
+          <div class="card-label">
+            <span class="card-icon">◆</span>
+            結論
+          </div>
+          <p id="text-conclusion" class="card-text"></p>
+        </div>
+
+        <div class="result-card card-background">
+          <div class="card-label">
+            <span class="card-icon">◇</span>
+            背景
+          </div>
+          <p id="text-background" class="card-text"></p>
+        </div>
+
+        <div class="result-card card-next">
+          <div class="card-label">
+            <span class="card-icon">▷</span>
+            ネクストアクション
+          </div>
+          <p id="text-next" class="card-text"></p>
+        </div>
+
+      </div>
+
+      <!-- Actions -->
+      <div class="result-actions">
+        <button id="btn-copy" class="btn-secondary" title="クリップボードにコピー">
+          <span id="copy-icon">⊕</span> コピー
+        </button>
+        <button id="btn-retry" class="btn-secondary" title="再要約">
+          ↺ 再要約
+        </button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <span>Powered by Chrome Built-in AI (Gemini Nano)</span>
+  </footer>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>
