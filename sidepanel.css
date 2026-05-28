@@ -74,6 +74,12 @@ body {
   color: var(--text-primary);
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 /* ============================================================
    Buttons
    ============================================================ */
@@ -119,6 +125,22 @@ body {
 }
 
 .btn-icon { font-size: 10px; }
+
+.btn-icon-only {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  cursor: pointer;
+  transition: color var(--transition), background var(--transition);
+}
+.btn-icon-only:hover { color: var(--text-primary); background: var(--bg-card); }
 
 /* ============================================================
    Page Info
@@ -378,6 +400,36 @@ main {
   gap: 8px;
   padding: 0 14px 14px;
 }
+
+/* ============================================================
+   API Key Warning Banner
+   ============================================================ */
+.api-warning {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  background: rgba(245, 158, 11, 0.1);
+  border-bottom: 1px solid rgba(245, 158, 11, 0.25);
+  font-size: 12px;
+}
+
+.warning-icon { color: var(--accent-amber); flex-shrink: 0; }
+
+.warning-text { color: var(--accent-amber); flex: 1; }
+
+.btn-warning-link {
+  background: none;
+  border: none;
+  color: var(--accent-amber);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  white-space: nowrap;
+  padding: 0;
+}
+.btn-warning-link:hover { opacity: 0.8; }
 
 /* ============================================================
    Footer

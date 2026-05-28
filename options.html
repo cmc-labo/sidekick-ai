@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sidekick AI — 設定</title>
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <div class="container">
+
+    <!-- Header -->
+    <header class="header">
+      <span class="logo">✦</span>
+      <div>
+        <h1 class="title">Sidekick AI</h1>
+        <p class="subtitle">設定 / Settings</p>
+      </div>
+    </header>
+
+    <!-- Form -->
+    <main class="form">
+
+      <!-- API Key -->
+      <div class="field">
+        <label class="label" for="api-key">
+          OpenAI API Key
+          <span class="label-required">必須</span>
+        </label>
+        <div class="input-group">
+          <input
+            type="password"
+            id="api-key"
+            class="input"
+            placeholder="sk-..."
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button id="btn-toggle-key" class="btn-icon-only" title="表示 / 非表示">👁</button>
+        </div>
+        <p class="field-hint">
+          APIキーは <code>chrome.storage.local</code> にのみ保存され、外部には送信されません。
+        </p>
+      </div>
+
+      <!-- Model -->
+      <div class="field">
+        <label class="label" for="model">モデル</label>
+        <select id="model" class="input select">
+          <option value="gpt-4o-mini">gpt-4o-mini（推奨・低コスト）</option>
+          <option value="gpt-4o">gpt-4o（高精度）</option>
+          <option value="gpt-4-turbo">gpt-4-turbo</option>
+        </select>
+      </div>
+
+      <!-- Actions -->
+      <div class="actions">
+        <button id="btn-save" class="btn-primary">保存</button>
+        <button id="btn-test" class="btn-secondary">接続テスト</button>
+      </div>
+
+      <!-- Status message -->
+      <div id="status" class="status hidden"></div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <p>
+        APIキーは
+        <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">
+          platform.openai.com/api-keys
+        </a>
+        で取得できます。
+      </p>
+    </footer>
+
+  </div>
+  <script src="options.js"></script>
+</body>
+</html>

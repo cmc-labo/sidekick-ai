@@ -13,11 +13,21 @@
       <span class="logo">✦</span>
       <span class="header-title">Sidekick AI</span>
     </div>
-    <button id="btn-summarize" class="btn-primary" title="このページを要約">
-      <span class="btn-icon">▶</span>
-      <span>要約</span>
-    </button>
+    <div class="header-right">
+      <button id="btn-settings" class="btn-icon-only" title="設定 (APIキー)">⚙</button>
+      <button id="btn-summarize" class="btn-primary" title="このページを要約">
+        <span class="btn-icon">▶</span>
+        <span>要約</span>
+      </button>
+    </div>
   </header>
+
+  <!-- API Key Warning Banner -->
+  <div id="api-key-warning" class="api-warning hidden">
+    <span class="warning-icon">⚠</span>
+    <span class="warning-text">OpenAI APIキーが未設定です</span>
+    <button id="btn-warning-settings" class="btn-warning-link">設定を開く →</button>
+  </div>
 
   <!-- Page info -->
   <div id="page-info" class="page-info hidden">
@@ -49,12 +59,6 @@
       <div class="loading-content">
         <div class="spinner"></div>
         <p id="loading-text" class="loading-text">コンテンツを取得中...</p>
-        <div id="download-progress" class="download-progress hidden">
-          <div class="progress-bar">
-            <div id="progress-fill" class="progress-fill"></div>
-          </div>
-          <span id="progress-label" class="progress-label">モデルをダウンロード中...</span>
-        </div>
       </div>
     </div>
 
@@ -64,6 +68,7 @@
         <div class="error-icon">⚠</div>
         <p id="error-message" class="error-message"></p>
         <div id="error-hint" class="error-hint hidden"></div>
+        <button id="btn-goto-settings" class="btn-secondary hidden">⚙ APIキーを設定する</button>
       </div>
     </div>
 
@@ -112,7 +117,7 @@
 
   <!-- Footer -->
   <footer class="footer">
-    <span>Powered by Chrome Built-in AI (Gemini Nano)</span>
+    <span>Powered by OpenAI API</span>
   </footer>
 
   <script src="sidepanel.js"></script>

@@ -1,13 +1,21 @@
 {
   "manifest_version": 3,
   "name": "Sidekick AI - Technical Doc Summarizer",
-  "version": "1.0.0",
-  "description": "Summarize English technical documents using Chrome Built-in AI (Gemini Nano)",
+  "version": "2.0.0",
+  "description": "Summarize English technical documents using OpenAI API",
   "permissions": [
     "sidePanel",
     "activeTab",
-    "scripting"
+    "scripting",
+    "storage"
   ],
+  "host_permissions": [
+    "https://api.openai.com/*"
+  ],
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
   "background": {
     "service_worker": "background.js"
   },
