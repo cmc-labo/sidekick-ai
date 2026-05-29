@@ -74,43 +74,70 @@
 
     <!-- Result state -->
     <div id="state-result" class="state-view hidden">
-      <div class="result-cards">
 
-        <div class="result-card card-conclusion">
-          <div class="card-label">
-            <span class="card-icon">◆</span>
-            結論
+      <!-- Summary (scrollable, capped height) -->
+      <div class="summary-area">
+        <div class="result-cards">
+
+          <div class="result-card card-conclusion">
+            <div class="card-label">
+              <span class="card-icon">◆</span>
+              結論
+            </div>
+            <p id="text-conclusion" class="card-text"></p>
           </div>
-          <p id="text-conclusion" class="card-text"></p>
+
+          <div class="result-card card-background">
+            <div class="card-label">
+              <span class="card-icon">◇</span>
+              背景
+            </div>
+            <p id="text-background" class="card-text"></p>
+          </div>
+
+          <div class="result-card card-next">
+            <div class="card-label">
+              <span class="card-icon">▷</span>
+              ネクストアクション
+            </div>
+            <p id="text-next" class="card-text"></p>
+          </div>
+
         </div>
 
-        <div class="result-card card-background">
-          <div class="card-label">
-            <span class="card-icon">◇</span>
-            背景
-          </div>
-          <p id="text-background" class="card-text"></p>
+        <!-- Actions -->
+        <div class="result-actions">
+          <button id="btn-copy" class="btn-secondary" title="クリップボードにコピー">
+            <span id="copy-icon">⊕</span> コピー
+          </button>
+          <button id="btn-retry" class="btn-secondary" title="再要約">
+            ↺ 再要約
+          </button>
         </div>
-
-        <div class="result-card card-next">
-          <div class="card-label">
-            <span class="card-icon">▷</span>
-            ネクストアクション
-          </div>
-          <p id="text-next" class="card-text"></p>
-        </div>
-
       </div>
 
-      <!-- Actions -->
-      <div class="result-actions">
-        <button id="btn-copy" class="btn-secondary" title="クリップボードにコピー">
-          <span id="copy-icon">⊕</span> コピー
-        </button>
-        <button id="btn-retry" class="btn-secondary" title="再要約">
-          ↺ 再要約
-        </button>
+      <!-- QA Chat section -->
+      <div id="qa-section" class="qa-section">
+        <div class="qa-section-header">
+          <span class="qa-section-label">Q&amp;A</span>
+          <span class="qa-section-hint">ページの内容について質問できます</span>
+        </div>
+        <div id="qa-history" class="qa-history">
+          <p class="qa-placeholder">気になったことをそのまま質問してみてください</p>
+        </div>
+        <div class="qa-input-row">
+          <input
+            type="text"
+            id="qa-input"
+            class="qa-input"
+            placeholder="例: この実験の具体的な条件は？"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button id="btn-ask" class="btn-ask" title="送信 (Enter)">↑</button>
+        </div>
       </div>
+
     </div>
 
   </main>
