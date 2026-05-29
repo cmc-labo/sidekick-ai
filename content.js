@@ -99,11 +99,15 @@ function extractContent() {
     text = document.body.innerText;
   }
 
-  // Normalize whitespace and cap length to avoid exceeding model context
+  // Normalize whitespace
   text = text.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
-  const MAX_CHARS = 6000;
+
+  // Cap at 3,000 chars using head + tail to preserve both intro and conclusion
+  const MAX_CHARS = 3000;
   if (text.length > MAX_CHARS) {
-    text = text.slice(0, MAX_CHARS) + '\n...(truncated)';
+    const head = text.slice(0, 2500);
+    const tail = text.slice(-500);
+    text = head + '\n...\n' + tail;
   }
 
   return { title, text, url };

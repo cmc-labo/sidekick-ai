@@ -1,17 +1,20 @@
 /**
  * Sidekick AI – Side Panel
  *
- * Flow:
- *  1. On load — check if API key is stored; show warning banner if not
- *  2. "要約" button → fetch page content via content.js
- *  3. Call OpenAI Chat Completions API (streaming)
- *  4. Parse 結論 / 背景 / ネクストアクション lines and render into cards
+ * Latency optimizations:
+ *  - Content is prefetched in the background as soon as the panel opens,
+ *    so clicking "要約" can skip the DOM extraction round-trip entirely.
+ *  - chrome.tabs.query is called directly (no background relay message).
+ *  - Storage load and tab query run in parallel via Promise.all.
+ *  - Input text is capped at 3,000 chars (head + tail) to reduce TTFT.
+ *  - System prompt is kept tight to minimise input tokens.
+ *  - max_tokens is set to 250 (sufficient for 3 short Japanese lines).
  */
 
-const OPENAI_API_URL  = 'https://api.openai.com/v1/chat/completions';
-const DEFAULT_MODEL   = 'gpt-4o-mini';
+const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
+const DEFAULT_MODEL  = 'gpt-4.1-nano';
 
-// ─── DOM refs ────────────────────────────────────────────────────────────────
+// ─── DOM refs ─────────────────────────────────────────────────────────────────
 const btnSummarize    = document.getElementById('btn-summarize');
 const btnSettings     = document.getElementById('btn-settings');
 const btnWarnSettings = document.getElementById('btn-warning-settings');
@@ -22,8 +25,8 @@ const copyIcon        = document.getElementById('copy-icon');
 const apiKeyWarning   = document.getElementById('api-key-warning');
 const pageInfo        = document.getElementById('page-info');
 const pageFavicon     = document.getElementById('page-favicon');
-const pageTitle       = document.getElementById('page-title');
-const pageUrl         = document.getElementById('page-url');
+const pageTitleEl     = document.getElementById('page-title');
+const pageUrlEl       = document.getElementById('page-url');
 const loadingText     = document.getElementById('loading-text');
 const errorMessage    = document.getElementById('error-message');
 const errorHint       = document.getElementById('error-hint');
@@ -48,12 +51,8 @@ function showLoading(msg) {
 function showError(msg, showSettingsButton = false, hint = '') {
   errorMessage.textContent = msg;
   btnGotoSettings.classList.toggle('hidden', !showSettingsButton);
-  if (hint) {
-    errorHint.textContent = hint;
-    errorHint.classList.remove('hidden');
-  } else {
-    errorHint.classList.add('hidden');
-  }
+  errorHint.textContent = hint;
+  errorHint.classList.toggle('hidden', !hint);
   showState('error');
 }
 
@@ -63,25 +62,43 @@ async function refreshWarning() {
   apiKeyWarning.classList.toggle('hidden', Boolean(openai_api_key));
 }
 
-// Refresh banner when settings are saved in the options page
 chrome.storage.onChanged.addListener((changes) => {
   if ('openai_api_key' in changes) refreshWarning();
 });
 
+// ─── Content prefetch cache ───────────────────────────────────────────────────
+// Populated immediately when the panel opens so "要約" can skip the
+// content-extraction round-trip and fire the API call straight away.
+const prefetch = { tabId: null, url: null, data: null };
+
+async function prefetchContent() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.id) return;
+    if (prefetch.tabId === tab.id && prefetch.url === tab.url) return; // already cached
+
+    const res = await chrome.tabs.sendMessage(tab.id, { type: 'GET_CONTENT' });
+    if (res?.ok) {
+      prefetch.tabId = tab.id;
+      prefetch.url   = tab.url;
+      prefetch.data  = res.data;
+    }
+  } catch {
+    // Silently ignore — prefetch is best-effort; summarize() has its own fallback
+  }
+}
+
 // ─── System prompt ────────────────────────────────────────────────────────────
-const SYSTEM_PROMPT = `You are a technical document summarizer. Analyze the following English technical document and respond in Japanese with EXACTLY 3 lines — no other text:
-
-結論: [The core finding, claim, or value proposition in one sentence]
-背景: [The problem being solved, motivation, or context in one sentence]
-ネクストアクション: [What a developer or researcher should do or consider next in one sentence]
-
-Rules:
-- Each value must be a single complete Japanese sentence.
-- Keep each sentence under 80 Japanese characters.
-- Output only these 3 lines. No preamble, no explanation.`;
+const SYSTEM_PROMPT =
+  'Summarize the following English technical document in Japanese. ' +
+  'Output EXACTLY 3 lines, nothing else:\n' +
+  '結論: [core finding or conclusion — 1 sentence]\n' +
+  '背景: [background, problem, or motivation — 1 sentence]\n' +
+  'ネクストアクション: [what the reader should do or consider next — 1 sentence]\n' +
+  'Max 60 Japanese characters per line. No other text.';
 
 function buildPrompt(title, text) {
-  return `Document title: ${title}\n\n---\n${text}`;
+  return `Title: ${title}\n${text}`;
 }
 
 // ─── Stream parser ────────────────────────────────────────────────────────────
@@ -94,14 +111,14 @@ const LABEL_RE = {
 function renderStream(raw) {
   for (const line of raw.split('\n')) {
     const t = line.trim();
-    if (LABEL_RE.conclusion.test(t)) textConclusion.textContent = t.replace(LABEL_RE.conclusion, '');
+    if (LABEL_RE.conclusion.test(t))      textConclusion.textContent = t.replace(LABEL_RE.conclusion, '');
     else if (LABEL_RE.background.test(t)) textBackground.textContent = t.replace(LABEL_RE.background, '');
     else if (LABEL_RE.next.test(t))       textNext.textContent       = t.replace(LABEL_RE.next, '');
   }
 }
 
 // ─── OpenAI streaming call ────────────────────────────────────────────────────
-async function callOpenAI(apiKey, model, title, text, onChunk) {
+async function callOpenAI(apiKey, model, title, text) {
   const response = await fetch(OPENAI_API_URL, {
     method: 'POST',
     headers: {
@@ -114,9 +131,9 @@ async function callOpenAI(apiKey, model, title, text, onChunk) {
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user',   content: buildPrompt(title, text) },
       ],
-      stream:     true,
-      max_tokens: 400,
-      temperature: 0.3,
+      stream:      true,
+      max_tokens:  250,
+      temperature: 0.2,
     }),
   });
 
@@ -140,19 +157,18 @@ async function callOpenAI(apiKey, model, title, text, onChunk) {
 
     buffer += decoder.decode(value, { stream: true });
     const lines = buffer.split('\n');
-    buffer = lines.pop() ?? ''; // keep the last incomplete line
+    buffer = lines.pop() ?? '';
 
     for (const line of lines) {
       if (!line.startsWith('data: ')) continue;
       const data = line.slice(6).trim();
-      if (data === '[DONE]') return accumulated;
+      if (data === '[DONE]') return;
       try {
         const delta = JSON.parse(data).choices?.[0]?.delta?.content ?? '';
-        if (delta) { accumulated += delta; onChunk(accumulated); }
+        if (delta) { accumulated += delta; renderStream(accumulated); }
       } catch {}
     }
   }
-  return accumulated;
 }
 
 // ─── Main summarize flow ──────────────────────────────────────────────────────
@@ -161,10 +177,10 @@ async function summarize() {
   btnRetry.disabled     = true;
   pageInfo.classList.add('hidden');
 
-  // 1. Load settings
-  const { openai_api_key, openai_model } = await chrome.storage.local.get([
-    'openai_api_key',
-    'openai_model',
+  // Load settings and query active tab in parallel
+  const [{ openai_api_key, openai_model }, [tab]] = await Promise.all([
+    chrome.storage.local.get(['openai_api_key', 'openai_model']),
+    chrome.tabs.query({ active: true, currentWindow: true }),
   ]);
 
   if (!openai_api_key) {
@@ -173,41 +189,40 @@ async function summarize() {
     return;
   }
 
-  const model = openai_model || DEFAULT_MODEL;
-
-  // 2. Get active tab content
-  showLoading('コンテンツを取得中...');
-
-  let tabId, tabUrl;
-  try {
-    const res = await chrome.runtime.sendMessage({ type: 'GET_ACTIVE_TAB' });
-    tabId  = res?.tabId;
-    tabUrl = res?.url;
-  } catch {
-    showError('タブ情報の取得に失敗しました。');
-    enableButtons();
-    return;
-  }
-
-  if (!tabId) {
+  if (!tab?.id) {
     showError('アクティブなタブが見つかりません。');
     enableButtons();
     return;
   }
 
-  let contentData;
-  try {
-    const res = await chrome.tabs.sendMessage(tabId, { type: 'GET_CONTENT' });
-    if (!res?.ok) throw new Error(res?.error ?? 'unknown');
-    contentData = res.data;
-  } catch {
-    showError(
-      'ページコンテンツを取得できませんでした。',
-      false,
-      'ページをリロードしてから再試行してください。chrome:// ページや拡張機能ページは非対応です。'
-    );
-    enableButtons();
-    return;
+  const model  = openai_model || DEFAULT_MODEL;
+  const tabId  = tab.id;
+  const tabUrl = tab.url;
+
+  // Use prefetched content if it matches the current tab; otherwise fetch now
+  let contentData = (prefetch.tabId === tabId && prefetch.url === tabUrl)
+    ? prefetch.data
+    : null;
+
+  if (!contentData) {
+    showLoading('コンテンツを取得中...');
+    try {
+      const res = await chrome.tabs.sendMessage(tabId, { type: 'GET_CONTENT' });
+      if (!res?.ok) throw new Error(res?.error ?? 'unknown');
+      contentData = res.data;
+      // Update cache for subsequent retries
+      prefetch.tabId = tabId;
+      prefetch.url   = tabUrl;
+      prefetch.data  = contentData;
+    } catch {
+      showError(
+        'ページコンテンツを取得できませんでした。',
+        false,
+        'ページをリロードしてから再試行してください。chrome:// ページや拡張機能ページは非対応です。'
+      );
+      enableButtons();
+      return;
+    }
   }
 
   const { title, text } = contentData;
@@ -220,21 +235,20 @@ async function summarize() {
 
   updatePageInfo(title, tabUrl);
 
-  // 3. Prepare result cards and start streaming
+  // Reset cards and start streaming
   textConclusion.textContent = '';
   textBackground.textContent = '';
   textNext.textContent       = '';
   [textConclusion, textBackground, textNext].forEach((el) => el.classList.add('streaming'));
   showState('result');
-  showLoading(`${model} で要約中...`); // shown briefly before result state takes over
 
   try {
-    await callOpenAI(openai_api_key, model, title, text, renderStream);
+    await callOpenAI(openai_api_key, model, title, text);
   } catch (err) {
     const isAuthError = err.message.includes('無効') || err.message.includes('401');
     showError(`要約中にエラーが発生しました: ${err.message}`, isAuthError);
-    enableButtons();
     [textConclusion, textBackground, textNext].forEach((el) => el.classList.remove('streaming'));
+    enableButtons();
     return;
   }
 
@@ -252,8 +266,8 @@ btnCopy.addEventListener('click', async () => {
 
   try {
     await navigator.clipboard.writeText(text);
-    copyIcon.textContent      = '✓';
-    btnCopy.style.color       = 'var(--accent-green)';
+    copyIcon.textContent = '✓';
+    btnCopy.style.color  = 'var(--accent-green)';
     setTimeout(() => { copyIcon.textContent = '⊕'; btnCopy.style.color = ''; }, 1800);
   } catch {
     copyIcon.textContent = '✗';
@@ -263,13 +277,13 @@ btnCopy.addEventListener('click', async () => {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function updatePageInfo(title, url) {
-  pageTitle.textContent = title || '(タイトルなし)';
+  pageTitleEl.textContent = title || '(タイトルなし)';
   try {
     const p = new URL(url);
-    pageUrl.textContent                = p.hostname + p.pathname.slice(0, 40);
+    pageUrlEl.textContent              = p.hostname + p.pathname.slice(0, 40);
     pageFavicon.style.backgroundImage  = `url(https://www.google.com/s2/favicons?sz=16&domain=${p.hostname})`;
   } catch {
-    pageUrl.textContent = url ?? '';
+    pageUrlEl.textContent = url ?? '';
   }
   pageInfo.classList.remove('hidden');
 }
@@ -279,9 +293,7 @@ function enableButtons() {
   btnRetry.disabled     = false;
 }
 
-function openOptions() {
-  chrome.runtime.openOptionsPage();
-}
+function openOptions() { chrome.runtime.openOptionsPage(); }
 
 // ─── Event listeners ──────────────────────────────────────────────────────────
 btnSummarize.addEventListener('click', summarize);
@@ -291,4 +303,5 @@ btnWarnSettings.addEventListener('click', openOptions);
 btnGotoSettings.addEventListener('click', openOptions);
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
-refreshWarning();
+// Run warning check and content prefetch concurrently
+Promise.all([refreshWarning(), prefetchContent()]);
