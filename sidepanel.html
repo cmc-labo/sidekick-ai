@@ -22,6 +22,14 @@
     </div>
   </header>
 
+  <!-- Tab navigation -->
+  <nav class="tab-nav">
+    <button id="tab-summarize" class="tab tab-active" data-tab="summarize">要約</button>
+    <button id="tab-history"   class="tab"            data-tab="history">
+      履歴<span id="history-badge" class="history-badge hidden">0</span>
+    </button>
+  </nav>
+
   <!-- API Key Warning Banner -->
   <div id="api-key-warning" class="api-warning hidden">
     <span class="warning-icon">⚠</span>
@@ -138,6 +146,30 @@
         </div>
       </div>
 
+    </div>
+
+    <!-- History view -->
+    <div id="state-history" class="history-view hidden">
+      <div class="history-toolbar">
+        <div class="history-search-bar">
+          <span class="history-search-icon">⌕</span>
+          <input
+            type="text"
+            id="history-search"
+            class="history-search-input"
+            placeholder="タイトル・URL・要約で検索..."
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button id="btn-clear-search" class="btn-clear-search hidden" title="クリア">✕</button>
+        </div>
+        <button id="btn-clear-all" class="btn-icon-only btn-danger-muted" title="全履歴を削除">🗑</button>
+      </div>
+      <div id="history-list"  class="history-list"></div>
+      <div id="history-empty" class="history-empty hidden">
+        <div class="history-empty-icon">📋</div>
+        <p  class="history-empty-text">要約した記事が履歴に表示されます</p>
+      </div>
     </div>
 
   </main>
