@@ -1,10 +1,17 @@
 # Sidekick AI
 
-A Chrome extension that summarizes English technical documents directly in your browser using Chrome Built-in AI (Gemini Nano) — no external API calls, no data leaves your machine.
+A Chrome extension that summarizes English technical documents using the OpenAI API and displays the result in a persistent Side Panel. Supports context-aware follow-up Q&A and saves a searchable summary history locally.
+
+## Features
+
+| Feature | Description |
+|---|---|
+| **3-line Summary** | Every page is summarized as 結論 / 背景 / ネクストアクション, streamed in real time |
+| **Context Q&A** | Ask follow-up questions grounded in the current page after reading the summary |
+| **History** | All summaries are saved locally and searchable; export any entry as Markdown |
+| **Prefetch** | Page content is extracted the moment the panel opens, minimising click-to-result latency |
 
 ## Summary Format
-
-Every summary is structured as exactly three lines:
 
 | Field | Description |
 |---|---|
@@ -14,93 +21,135 @@ Every summary is structured as exactly three lines:
 
 ## Supported Pages
 
-- GitHub — README, Issues, Pull Requests, file views
-- arXiv — abstract pages and HTML full-paper views
-- Hacker News — article + top comments
-- Tech blogs and documentation — Medium, Zenn, dev.to, and any page with a `<main>` or `<article>` element
+- **GitHub** — README, Issues, Pull Requests, file views
+- **arXiv** — abstract pages and HTML full-paper views
+- **Hacker News** — article + top comments
+- **Tech blogs / docs** — Medium, Zenn, dev.to, and any page with a `<main>` or `<article>` element
 
 ## Requirements
 
-- Chrome 127 or later
-- Chrome Built-in AI (Gemini Nano) enabled (see setup below)
+- Chrome 127 or later (desktop)
+- An [OpenAI API key](https://platform.openai.com/api-keys)
 
 ## Setup
 
-### 1. Enable Chrome Built-in AI
-
-Open each URL in Chrome and apply the setting shown:
-
-| URL | Setting |
-|---|---|
-| `chrome://flags/#prompt-api-for-gemini-nano` | **Enabled** |
-| `chrome://flags/#optimization-guide-on-device-model` | **Enabled BypassPerfRequirement** |
-
-After saving the flags, restart Chrome.
-
-Then go to `chrome://components`, find **Optimization Guide On Device Model**, and click **Check for update**. Wait for the model to finish downloading (this may take a few minutes depending on your connection).
-
-You can verify the model is ready at `chrome://on-device-internals`.
-
-### 2. Load the Extension
+### 1. Load the Extension
 
 1. Open `chrome://extensions`
-2. Enable **Developer mode** (toggle in the top-right corner)
-3. Click **Load unpacked**
-4. Select the `sidekick-ai/` folder
+2. Enable **Developer mode** (top-right toggle)
+3. Click **Load unpacked** and select the `sidekick-ai/` folder
+4. The `✦ Sidekick AI` icon appears in the Chrome toolbar
 
-The `✦ Sidekick AI` icon will appear in the Chrome toolbar.
+### 2. Configure the API Key
+
+1. Right-click the toolbar icon → **Options**, or click **⚙** inside the Side Panel
+2. Enter your OpenAI API key (`sk-...`)
+3. Select a model (default: `gpt-4.1-nano`)
+4. Click **保存**. Use **接続テスト** to verify the key is valid
+
+The key is stored in `chrome.storage.local` and never sent anywhere except `api.openai.com`.
 
 ## Usage
 
-1. Open any technical document (GitHub repo, arXiv paper, tech blog, etc.)
-2. Click the **✦ Sidekick AI** icon in the toolbar — the Side Panel opens on the right
-3. Click the **▶ 要約** button
-4. The summary streams in within a few seconds
-5. Use the **コピー** button to copy the three lines to your clipboard
+### Summarize
 
-To re-summarize the same page (e.g., after scrolling to a new section), click **↺ 再要約**.
+1. Open any technical document
+2. Click **✦ Sidekick AI** in the toolbar — the Side Panel opens on the right
+3. Click **▶ 要約**
+4. The 3-line summary streams in within a few seconds
+5. Click **⊕ コピー** to copy the summary to clipboard, or **↺ 再要約** to re-run
+
+### Ask Follow-up Questions
+
+After the summary appears, a Q&A input is shown at the bottom of the panel:
+
+1. Type a question about the current page (e.g. *この実験の具体的な条件は？*)
+2. Press **Enter** or click **↑**
+3. The answer streams in, grounded strictly in the page content
+4. Continue asking — the last 4 turns are kept as conversation context
+
+### History
+
+Switch to the **履歴** tab to browse all past summaries:
+
+- Entries are grouped by **今日 / 昨日 / 今週 / それ以前**
+- Use the search bar to filter by title, URL, or any summary text
+- Click an entry to expand the full 3-card summary
+- **⊕ Markdown コピー** exports the entry in a format ready to paste into Notion or any Markdown editor
+- **✕** deletes a single entry; **🗑** deletes all history (with confirmation)
+
+#### Markdown export format
+
+```markdown
+## Attention Is All You Need
+
+- **URL**: https://arxiv.org/abs/1706.03762
+- **保存日**: 2026/5/31
+
+**結論**: Transformerはアテンション機構のみで...
+**背景**: RNNベースのシーケンスモデルは...
+**ネクストアクション**: 実装を試し、マルチヘッドアテンションを...
+```
 
 ## How It Works
 
 ```
-Toolbar click
-    └── Side Panel opens
-            └── "要約" button click
-                    ├── content.js extracts main text from the active tab DOM
-                    ├── window.ai.languageModel.capabilities() checks model status
-                    ├── Session created with a structured Japanese output prompt
-                    └── promptStreaming() streams result into three cards
+Panel opens
+    ├── content.js prefetches page text in the background
+    └── API key + tab queried in parallel on "要約" click
+            └── OpenAI Chat Completions (streaming)
+                    ├── 3-line summary rendered into cards
+                    ├── Summary auto-saved to chrome.storage.local
+                    └── Q&A input enabled (context = page text + summary)
+
+"履歴" tab
+    └── chrome.storage.local → grouped list → full-text search
 ```
 
-All processing runs locally via `window.ai.languageModel` (Chrome Prompt API). Text is capped at 6,000 characters before being sent to the model to stay within Gemini Nano's context limit.
+Page text is capped at 3,000 characters (head + tail) before being sent to the API.
+
+## Model Options
+
+| Model | Speed | Cost | Recommended for |
+|---|---|---|---|
+| `gpt-4.1-nano` | ★★★ Fastest | $ Lowest | Default — daily reading |
+| `gpt-4.1-mini` | ★★☆ Fast | $$ Low | Longer or denser documents |
+| `gpt-4o-mini` | ★★☆ Fast | $$ Low | Alternative to 4.1-mini |
+| `gpt-4.1` | ★☆☆ Moderate | $$$$ High | Maximum accuracy |
+| `gpt-4o` | ★☆☆ Moderate | $$$$ High | Alternative to 4.1 |
 
 ## Troubleshooting
 
-**"Chrome Built-in AI が利用できません" error**
+**"APIキーが設定されていません" banner**
 
-- Make sure you are on Chrome 127 or later (`chrome://version`)
-- Confirm both flags are set to **Enabled** and Chrome was restarted
-- Check that the model downloaded successfully at `chrome://components`
+Open the options page (⚙ button) and save a valid key. Use **接続テスト** to confirm it works.
+
+**"APIキーが無効です" error**
+
+The key may have been revoked or miscopied. Generate a new key at [platform.openai.com/api-keys](https://platform.openai.com/api-keys).
 
 **"ページコンテンツを取得できませんでした" error**
 
-- Reload the target page, then retry
-- Chrome internal pages (`chrome://`, `chrome-extension://`) and local files (`file://`) cannot be accessed by content scripts
+- Reload the target page and retry
+- `chrome://` pages, extension pages, and `file://` URLs cannot be accessed by content scripts
 
-**Model is slow on first run**
+**Q&A answers seem inaccurate**
 
-Gemini Nano may need a warm-up period after the initial download. Subsequent runs are faster.
+The model answers based only on the extracted page text (up to 3,000 characters). For very long papers, the relevant section may have been truncated — try the HTML version of arXiv papers for more complete extraction.
 
 ## Project Structure
 
 ```
 sidekick-ai/
-├── manifest.json       # Manifest V3 config
-├── background.js       # Service worker — opens the side panel on icon click
-├── content.js          # Content script — extracts main text from page DOM
-├── sidepanel.html      # Side Panel UI markup
-├── sidepanel.js        # AI summarization logic + UI state management
+├── manifest.json       # Manifest V3 — permissions, side_panel, options_ui
+├── background.js       # Service worker — opens side panel on toolbar click
+├── content.js          # Content script — site-aware DOM text extraction
+├── sidepanel.html      # Side Panel UI markup (summary + Q&A + history tabs)
+├── sidepanel.js        # Core logic: summarize, Q&A, history CRUD, streaming
 ├── sidepanel.css       # Dark-theme styles
+├── options.html        # Settings page — API key + model selector
+├── options.js          # Save/load settings, connection test
+├── options.css         # Settings page styles
 └── icons/
     ├── icon16.png
     ├── icon32.png
@@ -110,7 +159,7 @@ sidekick-ai/
 
 ## Limitations
 
-- Requires Chrome 127+ on desktop (not available on mobile Chrome or other browsers)
-- Gemini Nano is a small on-device model; summary quality on very long or highly technical papers may vary
-- PDF viewer pages are not supported — open the HTML version of arXiv papers (e.g., `arxiv.org/html/<id>`) for best results
+- Requires Chrome 127+ on desktop; not available on mobile Chrome or other browsers
+- PDF viewer pages are not supported — use the HTML version (`arxiv.org/html/<id>`) for arXiv papers
 - Pages behind authentication or paywalls extract only the visible DOM text
+- History is stored in `chrome.storage.local` (5 MB default limit); capped at 500 entries
