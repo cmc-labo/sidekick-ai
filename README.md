@@ -1,23 +1,26 @@
 # Sidekick AI
 
-A Chrome extension that summarizes English technical documents using the OpenAI API and displays the result in a persistent Side Panel. Supports context-aware follow-up Q&A and saves a searchable summary history locally.
+A Chrome extension that summarizes English technical documents using the OpenAI API and displays the result in a persistent Side Panel. Supports context-aware follow-up Q&A, saves a searchable summary history locally, and outputs in English, Japanese, or Chinese.
 
 ## Features
 
 | Feature | Description |
 |---|---|
-| **3-line Summary** | Every page is summarized as 結論 / 背景 / ネクストアクション, streamed in real time |
+| **3-line Summary** | Every page is summarized as Conclusion / Background / Next Action, streamed in real time |
+| **Multi-language Output** | Summaries and Q&A answers in English (default), 日本語, or 中文（简体） |
 | **Context Q&A** | Ask follow-up questions grounded in the current page after reading the summary |
 | **History** | All summaries are saved locally and searchable; export any entry as Markdown |
 | **Prefetch** | Page content is extracted the moment the panel opens, minimising click-to-result latency |
 
 ## Summary Format
 
+Each summary has three fields, rendered in the selected output language:
+
 | Field | Description |
 |---|---|
-| **結論** (Conclusion) | The core finding or value proposition |
-| **背景** (Background) | The problem being solved or motivation |
-| **ネクストアクション** (Next Action) | What you should do or consider next |
+| **Conclusion** / 結論 / 结论 | The core finding or value proposition |
+| **Background** / 背景 / 背景 | The problem being solved or motivation |
+| **Next Action** / ネクストアクション / 下一步行动 | What you should do or consider next |
 
 ## Supported Pages
 
@@ -44,10 +47,21 @@ A Chrome extension that summarizes English technical documents using the OpenAI 
 
 1. Right-click the toolbar icon → **Options**, or click **⚙** inside the Side Panel
 2. Enter your OpenAI API key (`sk-...`)
-3. Select a model (default: `gpt-4.1-nano`)
-4. Click **保存**. Use **接続テスト** to verify the key is valid
+3. Select an **Output Language** (default: English)
+4. Select a model (default: `gpt-4.1-nano`)
+5. Click **保存**. Use **接続テスト** to verify the key is valid
 
 The key is stored in `chrome.storage.local` and never sent anywhere except `api.openai.com`.
+
+### Output Language
+
+| Value | Summary & Q&A output |
+|---|---|
+| **English** (default) | Conclusion / Background / Next Action |
+| **日本語** | 結論 / 背景 / ネクストアクション |
+| **中文（简体）** | 结论 / 背景 / 下一步行动 |
+
+The language can be changed at any time in Settings. Each history entry stores the language it was saved in, so the correct labels are used when you re-open a past summary.
 
 ## Usage
 
@@ -63,9 +77,9 @@ The key is stored in `chrome.storage.local` and never sent anywhere except `api.
 
 After the summary appears, a Q&A input is shown at the bottom of the panel:
 
-1. Type a question about the current page (e.g. *この実験の具体的な条件は？*)
+1. Type a question about the current page (e.g. *What are the specific conditions of this experiment?*)
 2. Press **Enter** or click **↑**
-3. The answer streams in, grounded strictly in the page content
+3. The answer streams in, grounded strictly in the page content, in the selected output language
 4. Continue asking — the last 4 turns are kept as conversation context
 
 ### History
@@ -80,11 +94,14 @@ Switch to the **履歴** tab to browse all past summaries:
 
 #### Markdown export format
 
+The exported labels match the output language stored with that entry:
+
 ```markdown
 ## Attention Is All You Need
 
 - **URL**: https://arxiv.org/abs/1706.03762
-- **保存日**: 2026/5/31
+- **Date**: 2026/6/1
+- **Language**: 日本語
 
 **結論**: Transformerはアテンション機構のみで...
 **背景**: RNNベースのシーケンスモデルは...
@@ -96,14 +113,15 @@ Switch to the **履歴** tab to browse all past summaries:
 ```
 Panel opens
     ├── content.js prefetches page text in the background
-    └── API key + tab queried in parallel on "要約" click
+    └── API key + output language + tab queried in parallel on "要約" click
             └── OpenAI Chat Completions (streaming)
-                    ├── 3-line summary rendered into cards
-                    ├── Summary auto-saved to chrome.storage.local
+                    ├── 3-line summary rendered in the selected language
+                    ├── Summary auto-saved to chrome.storage.local (with language tag)
                     └── Q&A input enabled (context = page text + summary)
 
 "履歴" tab
     └── chrome.storage.local → grouped list → full-text search
+            └── each entry renders labels in its stored language
 ```
 
 Page text is capped at 3,000 characters (head + tail) before being sent to the API.
@@ -147,7 +165,7 @@ sidekick-ai/
 ├── sidepanel.html      # Side Panel UI markup (summary + Q&A + history tabs)
 ├── sidepanel.js        # Core logic: summarize, Q&A, history CRUD, streaming
 ├── sidepanel.css       # Dark-theme styles
-├── options.html        # Settings page — API key + model selector
+├── options.html        # Settings page — API key + language + model selector
 ├── options.js          # Save/load settings, connection test
 ├── options.css         # Settings page styles
 └── icons/
