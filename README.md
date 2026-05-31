@@ -7,6 +7,7 @@ A Chrome extension that summarizes English technical documents using the OpenAI 
 | Feature | Description |
 |---|---|
 | **3-line Summary** | Every page is summarized as Conclusion / Background / Next Action, streamed in real time |
+| **Multi-language UI** | The entire panel UI — labels, buttons, errors, history groups — switches language with one setting change |
 | **Multi-language Output** | Summaries and Q&A answers in English (default), 日本語, or 中文（简体） |
 | **Context Q&A** | Ask follow-up questions grounded in the current page after reading the summary |
 | **History** | All summaries are saved locally and searchable; export any entry as Markdown |
@@ -49,19 +50,21 @@ Each summary has three fields, rendered in the selected output language:
 2. Enter your OpenAI API key (`sk-...`)
 3. Select an **Output Language** (default: English)
 4. Select a model (default: `gpt-4.1-nano`)
-5. Click **保存**. Use **接続テスト** to verify the key is valid
+5. Click **Save**. Use **Test Connection** to verify the key is valid
 
 The key is stored in `chrome.storage.local` and never sent anywhere except `api.openai.com`.
 
-### Output Language
+### Language Setting
 
-| Value | Summary & Q&A output |
+Changing the output language updates **both** the panel UI and the summary/Q&A content:
+
+| Value | UI & summary output |
 |---|---|
 | **English** (default) | Conclusion / Background / Next Action |
 | **日本語** | 結論 / 背景 / ネクストアクション |
 | **中文（简体）** | 结论 / 背景 / 下一步行动 |
 
-The language can be changed at any time in Settings. Each history entry stores the language it was saved in, so the correct labels are used when you re-open a past summary.
+The change takes effect immediately — no reload needed. The Settings page itself also switches language live when you change the selector. Each history entry stores the language it was saved in, so the correct labels are shown when you re-open a past summary.
 
 ## Usage
 
@@ -69,9 +72,9 @@ The language can be changed at any time in Settings. Each history entry stores t
 
 1. Open any technical document
 2. Click **✦ Sidekick AI** in the toolbar — the Side Panel opens on the right
-3. Click **▶ 要約**
+3. Click **▶ Summarize**
 4. The 3-line summary streams in within a few seconds
-5. Click **⊕ コピー** to copy the summary to clipboard, or **↺ 再要約** to re-run
+5. Click **⊕ Copy** to copy the summary to clipboard, or **↺ Retry** to re-run
 
 ### Ask Follow-up Questions
 
@@ -84,12 +87,12 @@ After the summary appears, a Q&A input is shown at the bottom of the panel:
 
 ### History
 
-Switch to the **履歴** tab to browse all past summaries:
+Switch to the **History** tab to browse all past summaries:
 
-- Entries are grouped by **今日 / 昨日 / 今週 / それ以前**
+- Entries are grouped by **Today / Yesterday / This Week / Older** (or the equivalent in the active language)
 - Use the search bar to filter by title, URL, or any summary text
 - Click an entry to expand the full 3-card summary
-- **⊕ Markdown コピー** exports the entry in a format ready to paste into Notion or any Markdown editor
+- **⊕ Markdown** exports the entry in a format ready to paste into Notion or any Markdown editor
 - **✕** deletes a single entry; **🗑** deletes all history (with confirmation)
 
 #### Markdown export format
@@ -112,16 +115,21 @@ The exported labels match the output language stored with that entry:
 
 ```
 Panel opens
+    ├── UI strings applied in the saved language (English default)
     ├── content.js prefetches page text in the background
-    └── API key + output language + tab queried in parallel on "要約" click
+    └── API key + output language + tab queried in parallel on "Summarize" click
             └── OpenAI Chat Completions (streaming)
                     ├── 3-line summary rendered in the selected language
                     ├── Summary auto-saved to chrome.storage.local (with language tag)
                     └── Q&A input enabled (context = page text + summary)
 
-"履歴" tab
+"History" tab
     └── chrome.storage.local → grouped list → full-text search
             └── each entry renders labels in its stored language
+
+Language setting changed
+    └── storage.onChanged → applyUIStrings() updates all panel chrome instantly
+            └── history re-rendered if currently visible
 ```
 
 Page text is capped at 3,000 characters (head + tail) before being sent to the API.
@@ -138,15 +146,15 @@ Page text is capped at 3,000 characters (head + tail) before being sent to the A
 
 ## Troubleshooting
 
-**"APIキーが設定されていません" banner**
+**"OpenAI API key is not set" banner**
 
-Open the options page (⚙ button) and save a valid key. Use **接続テスト** to confirm it works.
+Open the options page (⚙ button) and save a valid key. Use **Test Connection** to confirm it works.
 
-**"APIキーが無効です" error**
+**"Invalid API key" error**
 
 The key may have been revoked or miscopied. Generate a new key at [platform.openai.com/api-keys](https://platform.openai.com/api-keys).
 
-**"ページコンテンツを取得できませんでした" error**
+**"Could not retrieve page content" error**
 
 - Reload the target page and retry
 - `chrome://` pages, extension pages, and `file://` URLs cannot be accessed by content scripts
