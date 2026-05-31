@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -14,27 +14,29 @@
       <span class="header-title">Sidekick AI</span>
     </div>
     <div class="header-right">
-      <button id="btn-settings" class="btn-icon-only" title="設定 (APIキー)">⚙</button>
-      <button id="btn-summarize" class="btn-primary" title="このページを要約">
+      <button id="btn-settings" class="btn-icon-only" title="Settings">⚙</button>
+      <button id="btn-summarize" class="btn-primary" title="Summarize this page">
         <span class="btn-icon">▶</span>
-        <span>要約</span>
+        <span id="summarize-label">Summarize</span>
       </button>
     </div>
   </header>
 
   <!-- Tab navigation -->
   <nav class="tab-nav">
-    <button id="tab-summarize" class="tab tab-active" data-tab="summarize">要約</button>
-    <button id="tab-history"   class="tab"            data-tab="history">
-      履歴<span id="history-badge" class="history-badge hidden">0</span>
+    <button id="tab-summarize" class="tab tab-active" data-tab="summarize">
+      <span id="tab-summarize-label">Summary</span>
+    </button>
+    <button id="tab-history" class="tab" data-tab="history">
+      <span id="tab-history-label">History</span><span id="history-badge" class="history-badge hidden">0</span>
     </button>
   </nav>
 
   <!-- API Key Warning Banner -->
   <div id="api-key-warning" class="api-warning hidden">
     <span class="warning-icon">⚠</span>
-    <span class="warning-text">OpenAI APIキーが未設定です</span>
-    <button id="btn-warning-settings" class="btn-warning-link">設定を開く →</button>
+    <span id="warning-text" class="warning-text">OpenAI API key is not set</span>
+    <button id="btn-warning-settings" class="btn-warning-link">Open Settings →</button>
   </div>
 
   <!-- Page info -->
@@ -53,11 +55,12 @@
     <div id="state-idle" class="state-view">
       <div class="idle-content">
         <div class="idle-icon">✦</div>
-        <p class="idle-text">技術ドキュメントを開いて<br>「要約」ボタンを押してください</p>
+        <p id="idle-text" class="idle-text">Open a technical document
+and click "Summarize"</p>
         <ul class="idle-sources">
           <li>GitHub README / Issue / PR</li>
-          <li>arXiv 論文</li>
-          <li>技術ブログ・ドキュメント</li>
+          <li>arXiv papers</li>
+          <li>Tech blogs &amp; docs</li>
         </ul>
       </div>
     </div>
@@ -66,7 +69,7 @@
     <div id="state-loading" class="state-view hidden">
       <div class="loading-content">
         <div class="spinner"></div>
-        <p id="loading-text" class="loading-text">コンテンツを取得中...</p>
+        <p id="loading-text" class="loading-text">Loading content...</p>
       </div>
     </div>
 
@@ -76,7 +79,7 @@
         <div class="error-icon">⚠</div>
         <p id="error-message" class="error-message"></p>
         <div id="error-hint" class="error-hint hidden"></div>
-        <button id="btn-goto-settings" class="btn-secondary hidden">⚙ APIキーを設定する</button>
+        <button id="btn-goto-settings" class="btn-secondary hidden">⚙ Set API Key</button>
       </div>
     </div>
 
@@ -112,11 +115,11 @@
 
         <!-- Actions -->
         <div class="result-actions">
-          <button id="btn-copy" class="btn-secondary" title="クリップボードにコピー">
-            <span id="copy-icon">⊕</span> コピー
+          <button id="btn-copy" class="btn-secondary">
+            <span id="copy-icon">⊕</span><span id="copy-label">Copy</span>
           </button>
-          <button id="btn-retry" class="btn-secondary" title="再要約">
-            ↺ 再要約
+          <button id="btn-retry" class="btn-secondary">
+            <span id="retry-label">↺ Retry</span>
           </button>
         </div>
       </div>
@@ -125,21 +128,21 @@
       <div id="qa-section" class="qa-section">
         <div class="qa-section-header">
           <span class="qa-section-label">Q&amp;A</span>
-          <span class="qa-section-hint">ページの内容について質問できます</span>
+          <span id="qa-section-hint" class="qa-section-hint">Ask questions about this page</span>
         </div>
         <div id="qa-history" class="qa-history">
-          <p class="qa-placeholder">気になったことをそのまま質問してみてください</p>
+          <p class="qa-placeholder">Ask anything about this page</p>
         </div>
         <div class="qa-input-row">
           <input
             type="text"
             id="qa-input"
             class="qa-input"
-            placeholder="例: この実験の具体的な条件は？"
+            placeholder="e.g. What are the specific conditions of this experiment?"
             autocomplete="off"
             spellcheck="false"
           />
-          <button id="btn-ask" class="btn-ask" title="送信 (Enter)">↑</button>
+          <button id="btn-ask" class="btn-ask" title="Send (Enter)">↑</button>
         </div>
       </div>
 
@@ -154,18 +157,18 @@
             type="text"
             id="history-search"
             class="history-search-input"
-            placeholder="タイトル・URL・要約で検索..."
+            placeholder="Search by title, URL, or summary..."
             autocomplete="off"
             spellcheck="false"
           />
-          <button id="btn-clear-search" class="btn-clear-search hidden" title="クリア">✕</button>
+          <button id="btn-clear-search" class="btn-clear-search hidden" title="Clear">✕</button>
         </div>
-        <button id="btn-clear-all" class="btn-icon-only btn-danger-muted" title="全履歴を削除">🗑</button>
+        <button id="btn-clear-all" class="btn-icon-only btn-danger-muted" title="Delete all history">🗑</button>
       </div>
       <div id="history-list"  class="history-list"></div>
       <div id="history-empty" class="history-empty hidden">
         <div class="history-empty-icon">📋</div>
-        <p  class="history-empty-text">要約した記事が履歴に表示されます</p>
+        <p id="history-empty-text" class="history-empty-text">Summaries you read will appear here</p>
       </div>
     </div>
 

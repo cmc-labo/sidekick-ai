@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sidekick AI — 設定</title>
+  <title>Sidekick AI — Settings</title>
   <link rel="stylesheet" href="options.css" />
 </head>
 <body>
@@ -14,7 +14,7 @@
       <span class="logo">✦</span>
       <div>
         <h1 class="title">Sidekick AI</h1>
-        <p class="subtitle">設定 / Settings</p>
+        <p id="subtitle" class="subtitle">Settings</p>
       </div>
     </header>
 
@@ -25,7 +25,7 @@
       <div class="field">
         <label class="label" for="api-key">
           OpenAI API Key
-          <span class="label-required">必須</span>
+          <span id="label-required" class="label-required">Required</span>
         </label>
         <div class="input-group">
           <input
@@ -36,40 +36,40 @@
             autocomplete="off"
             spellcheck="false"
           />
-          <button id="btn-toggle-key" class="btn-icon-only" title="表示 / 非表示">👁</button>
+          <button id="btn-toggle-key" class="btn-icon-only" title="Show / Hide">👁</button>
         </div>
-        <p class="field-hint">
-          APIキーは <code>chrome.storage.local</code> にのみ保存され、外部には送信されません。
+        <p id="hint-api-key" class="field-hint">
+          Stored only in <code>chrome.storage.local</code>. Never sent anywhere except <code>api.openai.com</code>.
         </p>
       </div>
 
       <!-- Output Language -->
       <div class="field">
-        <label class="label" for="lang">Output Language / 出力言語</label>
+        <label id="label-lang" class="label" for="lang">Output Language</label>
         <select id="lang" class="input select">
           <option value="en">English (default)</option>
           <option value="ja">日本語</option>
           <option value="zh">中文（简体）</option>
         </select>
-        <p class="field-hint">要約・Q&amp;A の出力言語を選択します。入力ドキュメントは英語のまま処理されます。</p>
+        <p id="hint-lang" class="field-hint">Language for summaries and Q&amp;A answers. Source documents are processed in English.</p>
       </div>
 
       <!-- Model -->
       <div class="field">
-        <label class="label" for="model">モデル</label>
+        <label id="label-model" class="label" for="model">Model</label>
         <select id="model" class="input select">
-          <option value="gpt-4.1-nano">gpt-4.1-nano（最速・最低コスト）</option>
-          <option value="gpt-4.1-mini">gpt-4.1-mini（高速・バランス型）</option>
+          <option value="gpt-4.1-nano">gpt-4.1-nano (Fastest, lowest cost)</option>
+          <option value="gpt-4.1-mini">gpt-4.1-mini (Fast, balanced)</option>
           <option value="gpt-4o-mini">gpt-4o-mini</option>
-          <option value="gpt-4.1">gpt-4.1（高精度）</option>
-          <option value="gpt-4o">gpt-4o（高精度）</option>
+          <option value="gpt-4.1">gpt-4.1 (High accuracy)</option>
+          <option value="gpt-4o">gpt-4o (High accuracy)</option>
         </select>
       </div>
 
       <!-- Actions -->
       <div class="actions">
-        <button id="btn-save" class="btn-primary">保存</button>
-        <button id="btn-test" class="btn-secondary">接続テスト</button>
+        <button id="btn-save" class="btn-primary">Save</button>
+        <button id="btn-test" class="btn-secondary">Test Connection</button>
       </div>
 
       <!-- Status message -->
@@ -80,11 +80,10 @@
     <!-- Footer -->
     <footer class="footer">
       <p>
-        APIキーは
+        <span id="footer-hint">Get your API key at </span>
         <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">
           platform.openai.com/api-keys
         </a>
-        で取得できます。
       </p>
     </footer>
 

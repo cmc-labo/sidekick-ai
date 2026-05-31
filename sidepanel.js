@@ -6,6 +6,7 @@
  *  - 3-line structured summary streamed from OpenAI in English / 日本語 / 中文
  *  - Context-aware multi-turn QA in the selected language
  *  - Persistent history saved to chrome.storage.local with language metadata
+ *  - Full UI i18n: all labels update when the output language is changed
  */
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
@@ -15,18 +16,16 @@ const HISTORY_KEY    = 'summary_history';
 const MAX_ENTRIES    = 500;
 const MAX_QA_HISTORY = 8;
 
-// ─── Language configuration ───────────────────────────────────────────────────
+// ─── Content language config (summary output format) ─────────────────────────
 const LANG_CONFIG = {
   en: {
     name:          'English',
     labels:        ['Conclusion', 'Background', 'Next Action'],
-    // Regex patterns to detect each label at the start of a streamed line
     re: [
       /^Conclusion[：:]\s*/i,
       /^Background[：:]\s*/i,
       /^Next\s*Action[：:]\s*/i,
     ],
-    // Lines used inside the system prompt to describe the output format
     promptLines: [
       'Conclusion: [core finding or conclusion — 1 sentence]',
       'Background: [background, problem, or motivation — 1 sentence]',
@@ -79,6 +78,143 @@ function getLangConfig(code) {
   return LANG_CONFIG[code] ?? LANG_CONFIG[DEFAULT_LANG];
 }
 
+// ─── UI string config (panel chrome / labels) ─────────────────────────────────
+const UI_STRINGS = {
+  en: {
+    btnSettingsTitle:         'Settings',
+    btnSummarize:             'Summarize',
+    btnSummarizeTitle:        'Summarize this page',
+    tabSummarize:             'Summary',
+    tabHistory:               'History',
+    apiWarning:               'OpenAI API key is not set',
+    btnWarningSettings:       'Open Settings →',
+    idleText:                 'Open a technical document\nand click "Summarize"',
+    idleSources:              ['GitHub README / Issue / PR', 'arXiv papers', 'Tech blogs & docs'],
+    loadingContent:           'Loading content...',
+    btnCopy:                  'Copy',
+    btnCopyTitle:             'Copy to clipboard',
+    btnRetry:                 '↺ Retry',
+    qaSectionHint:            'Ask questions about this page',
+    btnAskTitle:              'Send (Enter)',
+    historySearchPlaceholder: 'Search by title, URL, or summary...',
+    btnClearSearchTitle:      'Clear',
+    btnClearAllTitle:         'Delete all history',
+    historyEmptyText:         'Summaries you read will appear here',
+    historyGroupToday:        'Today',
+    historyGroupYesterday:    'Yesterday',
+    historyGroupThisWeek:     'This Week',
+    historyGroupOlder:        'Older',
+    btnExpandTitle:           'Expand',
+    btnDeleteTitle:           'Delete',
+    btnMarkdownText:          '⊕ Markdown',
+    btnMarkdownCopied:        '✓ Copied',
+    btnOpenText:              '↗ Open',
+    confirmClearAll:          'Delete all history?',
+    btnGotoSettings:          '⚙ Set API Key',
+    errorNoKey:               'OpenAI API key is not set.',
+    errorNoTab:               'No active tab found.',
+    errorNoContent:           'Could not retrieve page content.',
+    errorNoContentHint:       'Reload the page and try again. chrome:// and extension pages are not supported.',
+    errorNoText:              'No summarizable text found.',
+    errorSummarize:           'Error during summarization: ',
+    errorAuth:                'Invalid API key. Check your settings.',
+    errorRateLimit:           'Rate limit reached. Please try again later.',
+    errorServerError:         'OpenAI server error. Please try again later.',
+    errorQAPrefix:            'Error: ',
+    dateLocale:               'en-US',
+  },
+  ja: {
+    btnSettingsTitle:         '設定 (APIキー)',
+    btnSummarize:             '要約',
+    btnSummarizeTitle:        'このページを要約',
+    tabSummarize:             '要約',
+    tabHistory:               '履歴',
+    apiWarning:               'OpenAI APIキーが未設定です',
+    btnWarningSettings:       '設定を開く →',
+    idleText:                 '技術ドキュメントを開いて\n「要約」ボタンを押してください',
+    idleSources:              ['GitHub README / Issue / PR', 'arXiv 論文', '技術ブログ・ドキュメント'],
+    loadingContent:           'コンテンツを取得中...',
+    btnCopy:                  'コピー',
+    btnCopyTitle:             'クリップボードにコピー',
+    btnRetry:                 '↺ 再要約',
+    qaSectionHint:            'ページの内容について質問できます',
+    btnAskTitle:              '送信 (Enter)',
+    historySearchPlaceholder: 'タイトル・URL・要約で検索...',
+    btnClearSearchTitle:      'クリア',
+    btnClearAllTitle:         '全履歴を削除',
+    historyEmptyText:         '要約した記事が履歴に表示されます',
+    historyGroupToday:        '今日',
+    historyGroupYesterday:    '昨日',
+    historyGroupThisWeek:     '今週',
+    historyGroupOlder:        'それ以前',
+    btnExpandTitle:           '展開',
+    btnDeleteTitle:           '削除',
+    btnMarkdownText:          '⊕ Markdown',
+    btnMarkdownCopied:        '✓ コピー済み',
+    btnOpenText:              '↗ 開く',
+    confirmClearAll:          '全ての履歴を削除しますか？',
+    btnGotoSettings:          '⚙ APIキーを設定する',
+    errorNoKey:               'OpenAI APIキーが設定されていません。',
+    errorNoTab:               'アクティブなタブが見つかりません。',
+    errorNoContent:           'ページコンテンツを取得できませんでした。',
+    errorNoContentHint:       'ページをリロードしてから再試行してください。chrome:// ページや拡張機能ページは非対応です。',
+    errorNoText:              '要約できるテキストが見つかりませんでした。',
+    errorSummarize:           '要約中にエラーが発生しました: ',
+    errorAuth:                'APIキーが無効です。設定を確認してください。',
+    errorRateLimit:           'レート制限に達しました。しばらくしてから再試行してください。',
+    errorServerError:         'OpenAIサーバーエラーです。時間をおいて再試行してください。',
+    errorQAPrefix:            'エラー: ',
+    dateLocale:               'ja-JP',
+  },
+  zh: {
+    btnSettingsTitle:         '设置',
+    btnSummarize:             '摘要',
+    btnSummarizeTitle:        '摘要本页面',
+    tabSummarize:             '摘要',
+    tabHistory:               '历史',
+    apiWarning:               '未设置 OpenAI API 密钥',
+    btnWarningSettings:       '打开设置 →',
+    idleText:                 '打开技术文档\n然后点击"摘要"按钮',
+    idleSources:              ['GitHub README / Issue / PR', 'arXiv 论文', '技术博客和文档'],
+    loadingContent:           '正在获取内容...',
+    btnCopy:                  '复制',
+    btnCopyTitle:             '复制到剪贴板',
+    btnRetry:                 '↺ 重新摘要',
+    qaSectionHint:            '可以就本页面内容提问',
+    btnAskTitle:              '发送 (Enter)',
+    historySearchPlaceholder: '按标题、URL 或摘要搜索...',
+    btnClearSearchTitle:      '清除',
+    btnClearAllTitle:         '删除所有历史',
+    historyEmptyText:         '已摘要的文章将显示在这里',
+    historyGroupToday:        '今天',
+    historyGroupYesterday:    '昨天',
+    historyGroupThisWeek:     '本周',
+    historyGroupOlder:        '更早',
+    btnExpandTitle:           '展开',
+    btnDeleteTitle:           '删除',
+    btnMarkdownText:          '⊕ Markdown',
+    btnMarkdownCopied:        '✓ 已复制',
+    btnOpenText:              '↗ 打开',
+    confirmClearAll:          '删除所有历史记录？',
+    btnGotoSettings:          '⚙ 设置 API 密钥',
+    errorNoKey:               '未设置 OpenAI API 密钥。',
+    errorNoTab:               '未找到活动标签页。',
+    errorNoContent:           '无法获取页面内容。',
+    errorNoContentHint:       '请重新加载页面后重试。chrome:// 页面和扩展页面不受支持。',
+    errorNoText:              '未找到可摘要的文本。',
+    errorSummarize:           '摘要时发生错误: ',
+    errorAuth:                'API 密钥无效。请检查您的设置。',
+    errorRateLimit:           '已达到速率限制。请稍后重试。',
+    errorServerError:         'OpenAI 服务器错误。请稍后重试。',
+    errorQAPrefix:            '错误: ',
+    dateLocale:               'zh-CN',
+  },
+};
+
+function getUIStrings(lang) {
+  return UI_STRINGS[lang] ?? UI_STRINGS[DEFAULT_LANG];
+}
+
 // ─── DOM refs ─────────────────────────────────────────────────────────────────
 const tabSummarize    = document.getElementById('tab-summarize');
 const tabHistory      = document.getElementById('tab-history');
@@ -113,6 +249,7 @@ const textNext        = document.getElementById('text-next');
 // ─── Tab / state management ───────────────────────────────────────────────────
 let activeTab          = 'summarize';
 let lastSummarizeState = 'idle';
+let currentUILang      = DEFAULT_LANG;
 
 const STATES = ['idle', 'loading', 'error', 'result'];
 
@@ -152,6 +289,40 @@ function showError(msg, showSettingsButton = false, hint = '') {
   showState('error');
 }
 
+// ─── UI i18n ──────────────────────────────────────────────────────────────────
+function applyUIStrings(lang) {
+  currentUILang = lang;
+  const ui = getUIStrings(lang);
+
+  btnSettings.title  = ui.btnSettingsTitle;
+  document.getElementById('summarize-label').textContent = ui.btnSummarize;
+  btnSummarize.title = ui.btnSummarizeTitle;
+
+  document.getElementById('tab-summarize-label').textContent = ui.tabSummarize;
+  document.getElementById('tab-history-label').textContent   = ui.tabHistory;
+
+  document.getElementById('warning-text').textContent = ui.apiWarning;
+  btnWarnSettings.textContent = ui.btnWarningSettings;
+
+  document.getElementById('idle-text').textContent = ui.idleText;
+  const sourceItems = document.querySelectorAll('.idle-sources li');
+  ui.idleSources.forEach((text, i) => { if (sourceItems[i]) sourceItems[i].textContent = text; });
+
+  document.getElementById('copy-label').textContent = ui.btnCopy;
+  btnCopy.title = ui.btnCopyTitle;
+  document.getElementById('retry-label').textContent = ui.btnRetry;
+
+  document.getElementById('qa-section-hint').textContent = ui.qaSectionHint;
+  btnAsk.title = ui.btnAskTitle;
+
+  historySearch.placeholder = ui.historySearchPlaceholder;
+  btnClearSearch.title      = ui.btnClearSearchTitle;
+  btnClearAll.title         = ui.btnClearAllTitle;
+  document.getElementById('history-empty-text').textContent = ui.historyEmptyText;
+
+  btnGotoSettings.textContent = ui.btnGotoSettings;
+}
+
 // ─── Card label update ────────────────────────────────────────────────────────
 const CARD_ICONS = ['◆', '◇', '▷'];
 const CARD_KEYS  = ['conclusion', 'background', 'nextAction'];
@@ -172,6 +343,11 @@ async function refreshWarning() {
 
 chrome.storage.onChanged.addListener((changes) => {
   if ('openai_api_key' in changes) refreshWarning();
+  if ('output_language' in changes) {
+    const lang = changes.output_language.newValue || DEFAULT_LANG;
+    applyUIStrings(lang);
+    if (activeTab === 'history') loadAndRenderHistory(historySearch.value);
+  }
 });
 
 // ─── Content prefetch ─────────────────────────────────────────────────────────
@@ -252,12 +428,10 @@ async function streamTokens(apiKey, model, messages, maxTokens, onDelta) {
   });
 
   if (!response.ok) {
-    let msg = `HTTP ${response.status}`;
-    try { msg = (await response.json()).error?.message ?? msg; } catch {}
-    if (response.status === 401) msg = 'APIキーが無効です。設定を確認してください。';
-    if (response.status === 429) msg = 'レート制限に達しました。しばらくしてから再試行してください。';
-    if (response.status === 500) msg = 'OpenAIサーバーエラーです。時間をおいて再試行してください。';
-    throw new Error(msg);
+    const apiMsg = await response.json().then((j) => j.error?.message).catch(() => null);
+    const err = new Error(apiMsg ?? `HTTP ${response.status}`);
+    err.httpStatus = response.status;
+    throw err;
   }
 
   const reader = response.body.getReader();
@@ -293,33 +467,33 @@ async function summarize() {
     chrome.tabs.query({ active: true, currentWindow: true }),
   ]);
 
-  if (!openai_api_key) { showError('OpenAI APIキーが設定されていません。', true); enableSummarizeButtons(); return; }
-  if (!tab?.id)        { showError('アクティブなタブが見つかりません。');            enableSummarizeButtons(); return; }
+  const lang = output_language || DEFAULT_LANG;
+  const ui   = getUIStrings(lang);
 
-  const model  = openai_model    || DEFAULT_MODEL;
-  const lang   = output_language || DEFAULT_LANG;
+  if (!openai_api_key) { showError(ui.errorNoKey, true); enableSummarizeButtons(); return; }
+  if (!tab?.id)        { showError(ui.errorNoTab);        enableSummarizeButtons(); return; }
+
+  const model  = openai_model || DEFAULT_MODEL;
   const tabId  = tab.id;
   const tabUrl = tab.url;
 
   let contentData = (prefetch.tabId === tabId && prefetch.url === tabUrl) ? prefetch.data : null;
   if (!contentData) {
-    showLoading('Loading content...');
+    showLoading(ui.loadingContent);
     try {
       const res = await chrome.tabs.sendMessage(tabId, { type: 'GET_CONTENT' });
       if (!res?.ok) throw new Error(res?.error ?? 'unknown');
       contentData = res.data;
       prefetch.tabId = tabId; prefetch.url = tabUrl; prefetch.data = contentData;
     } catch {
-      showError('ページコンテンツを取得できませんでした。', false,
-        'ページをリロードしてから再試行してください。chrome:// ページや拡張機能ページは非対応です。');
+      showError(ui.errorNoContent, false, ui.errorNoContentHint);
       enableSummarizeButtons(); return;
     }
   }
 
   const { title, text } = contentData;
-  if (!text || text.length < 100) { showError('要約できるテキストが見つかりませんでした。'); enableSummarizeButtons(); return; }
+  if (!text || text.length < 100) { showError(ui.errorNoText); enableSummarizeButtons(); return; }
 
-  // Apply language settings to UI before streaming starts
   updateCardLabels(lang);
   currentContext = { title, text };
   resetQA(lang);
@@ -339,8 +513,13 @@ async function summarize() {
       renderSummaryStream(accumulated, lang);
     });
   } catch (err) {
-    const isAuth = err.message.includes('無効') || err.message.includes('401');
-    showError(`要約中にエラーが発生しました: ${err.message}`, isAuth);
+    let msg;
+    let isAuth = false;
+    if (err.httpStatus === 401) { msg = ui.errorAuth; isAuth = true; }
+    else if (err.httpStatus === 429) msg = ui.errorRateLimit;
+    else if (err.httpStatus === 500) msg = ui.errorServerError;
+    else msg = ui.errorSummarize + err.message;
+    showError(msg, isAuth);
     streamEls.forEach((el) => el.classList.remove('streaming'));
     enableSummarizeButtons(); return;
   }
@@ -385,6 +564,7 @@ async function handleAsk() {
     'openai_api_key', 'openai_model', 'output_language',
   ]);
   const lang   = output_language || DEFAULT_LANG;
+  const ui     = getUIStrings(lang);
   let   answer = '';
 
   try {
@@ -400,7 +580,9 @@ async function handleAsk() {
     chatHistory.push({ role: 'user',      content: question });
     chatHistory.push({ role: 'assistant', content: answer   });
   } catch (err) {
-    answerBubble.textContent = `Error: ${err.message}`;
+    let msg = ui.errorQAPrefix + err.message;
+    if (err.httpStatus === 401) msg = ui.errorAuth;
+    answerBubble.textContent = msg;
     answerBubble.classList.add('bubble-error');
   } finally {
     answerBubble.classList.remove('streaming');
@@ -478,15 +660,16 @@ async function updateHistoryBadge(count) {
 
 // ─── History: rendering ───────────────────────────────────────────────────────
 function groupByDate(entries) {
+  const ui        = getUIStrings(currentUILang);
   const t0        = new Date(); t0.setHours(0, 0, 0, 0);
   const today     = t0.getTime();
   const yesterday = today - 864e5;
   const weekAgo   = today - 7 * 864e5;
   return [
-    { label: '今日',     items: entries.filter((e) => e.savedAt >= today)                             },
-    { label: '昨日',     items: entries.filter((e) => e.savedAt >= yesterday && e.savedAt < today)    },
-    { label: '今週',     items: entries.filter((e) => e.savedAt >= weekAgo   && e.savedAt < yesterday)},
-    { label: 'それ以前', items: entries.filter((e) => e.savedAt < weekAgo)                            },
+    { label: ui.historyGroupToday,     items: entries.filter((e) => e.savedAt >= today)                              },
+    { label: ui.historyGroupYesterday, items: entries.filter((e) => e.savedAt >= yesterday && e.savedAt < today)    },
+    { label: ui.historyGroupThisWeek,  items: entries.filter((e) => e.savedAt >= weekAgo   && e.savedAt < yesterday)},
+    { label: ui.historyGroupOlder,     items: entries.filter((e) => e.savedAt < weekAgo)                            },
   ].filter((g) => g.items.length);
 }
 
@@ -513,12 +696,12 @@ function renderHistoryList(entries) {
 }
 
 function renderHistoryEntry(entry) {
-  // Use the language stored with the entry; fall back to default
   const lc = getLangConfig(entry.language);
+  const ui = getUIStrings(currentUILang);
 
   let domain = '';
   try { domain = new URL(entry.url).hostname.replace(/^www\./, ''); } catch {}
-  const date = new Date(entry.savedAt).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' });
+  const date = new Date(entry.savedAt).toLocaleDateString(ui.dateLocale, { month: 'short', day: 'numeric' });
 
   const el = document.createElement('div');
   el.className  = 'history-entry';
@@ -541,7 +724,6 @@ function renderHistoryEntry(entry) {
   sub.className = 'h-domain-date';
   sub.textContent = domain ? `${domain} · ${date}` : date;
 
-  // Language badge
   const langBadge = document.createElement('span');
   langBadge.className   = 'h-lang-badge';
   langBadge.textContent = lc.name;
@@ -550,11 +732,13 @@ function renderHistoryEntry(entry) {
   meta.append(titleEl, sub);
 
   const btnExpand = document.createElement('button');
-  btnExpand.className = 'btn-he-expand'; btnExpand.title = '展開';
+  btnExpand.className   = 'btn-he-expand';
+  btnExpand.title       = ui.btnExpandTitle;
   btnExpand.textContent = '▾';
 
   const btnDel = document.createElement('button');
-  btnDel.className = 'btn-he-delete'; btnDel.title = '削除';
+  btnDel.className   = 'btn-he-delete';
+  btnDel.title       = ui.btnDeleteTitle;
   btnDel.textContent = '✕';
 
   top.append(fav, meta, btnExpand, btnDel);
@@ -589,12 +773,15 @@ function renderHistoryEntry(entry) {
   actions.className = 'h-entry-actions';
 
   const btnMd = document.createElement('button');
-  btnMd.className = 'btn-secondary h-btn'; btnMd.textContent = '⊕ Markdown';
+  btnMd.className   = 'btn-secondary h-btn';
+  btnMd.textContent = ui.btnMarkdownText;
 
   const linkOpen = document.createElement('a');
   linkOpen.className = 'btn-secondary h-btn';
-  linkOpen.href = entry.url; linkOpen.target = '_blank'; linkOpen.rel = 'noopener noreferrer';
-  linkOpen.textContent = '↗ 開く';
+  linkOpen.href      = entry.url;
+  linkOpen.target    = '_blank';
+  linkOpen.rel       = 'noopener noreferrer';
+  linkOpen.textContent = ui.btnOpenText;
 
   actions.append(btnMd, linkOpen);
   detail.appendChild(actions);
@@ -624,8 +811,8 @@ function renderHistoryEntry(entry) {
   // Copy Markdown
   btnMd.addEventListener('click', async () => {
     await navigator.clipboard.writeText(buildMarkdown(entry));
-    btnMd.textContent = '✓ Copied';
-    setTimeout(() => { btnMd.textContent = '⊕ Markdown'; }, 1800);
+    btnMd.textContent = getUIStrings(currentUILang).btnMarkdownCopied;
+    setTimeout(() => { btnMd.textContent = getUIStrings(currentUILang).btnMarkdownText; }, 1800);
   });
 
   return el;
@@ -633,7 +820,8 @@ function renderHistoryEntry(entry) {
 
 function buildMarkdown(entry) {
   const lc   = getLangConfig(entry.language);
-  const date = new Date(entry.savedAt).toLocaleDateString('ja-JP');
+  const ui   = getUIStrings(entry.language);
+  const date = new Date(entry.savedAt).toLocaleDateString(ui.dateLocale);
   return [
     `## ${entry.title}`,
     ``,
@@ -715,11 +903,17 @@ btnClearSearch.addEventListener('click', () => {
 });
 
 btnClearAll.addEventListener('click', async () => {
-  if (!confirm('全ての履歴を削除しますか？')) return;
+  if (!confirm(getUIStrings(currentUILang).confirmClearAll)) return;
   await clearAllHistory();
   renderHistoryList([]);
   updateHistoryBadge(0);
 });
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
-Promise.all([refreshWarning(), prefetchContent(), updateHistoryBadge()]);
+async function init() {
+  const { output_language } = await chrome.storage.local.get('output_language');
+  applyUIStrings(output_language || DEFAULT_LANG);
+  await Promise.all([refreshWarning(), prefetchContent(), updateHistoryBadge()]);
+}
+
+init();

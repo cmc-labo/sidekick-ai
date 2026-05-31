@@ -6,6 +6,94 @@ const btnSave       = document.getElementById('btn-save');
 const btnTest       = document.getElementById('btn-test');
 const statusEl      = document.getElementById('status');
 
+// ─── UI strings ───────────────────────────────────────────────────────────────
+const OPTIONS_UI = {
+  en: {
+    pageTitle:     'Sidekick AI — Settings',
+    subtitle:      'Settings',
+    labelRequired: 'Required',
+    hintApiKey:    'Stored only in <code>chrome.storage.local</code>. Never sent anywhere except <code>api.openai.com</code>.',
+    labelLang:     'Output Language',
+    hintLang:      'Language for summaries and Q&amp;A answers. Source documents are processed in English.',
+    labelModel:    'Model',
+    btnSave:       'Save',
+    btnTest:       'Test Connection',
+    footerHint:    'Get your API key at ',
+    errNoKey:      'Please enter an API key.',
+    errBadKey:     'API key must start with "sk-".',
+    errSave:       'Failed to save.',
+    msgSaved:      '✓ Settings saved.',
+    msgTesting:    'Testing connection...',
+    msgTestOk:     '✓ Connected! API key is valid.',
+    msgTestBad:    '✗ Invalid API key.',
+    msgTestNet:    '✗ Network error. Check your connection.',
+    errTestNoKey:  'Enter an API key to test.',
+    msgTestHttp:   (s) => `✗ Error: HTTP ${s}`,
+  },
+  ja: {
+    pageTitle:     'Sidekick AI — 設定',
+    subtitle:      '設定',
+    labelRequired: '必須',
+    hintApiKey:    'APIキーは <code>chrome.storage.local</code> にのみ保存され、<code>api.openai.com</code> 以外には送信されません。',
+    labelLang:     '出力言語',
+    hintLang:      '要約・Q&amp;A の出力言語を選択します。入力ドキュメントは英語のまま処理されます。',
+    labelModel:    'モデル',
+    btnSave:       '保存',
+    btnTest:       '接続テスト',
+    footerHint:    'APIキーの取得はこちら：',
+    errNoKey:      'APIキーを入力してください。',
+    errBadKey:     'APIキーは "sk-" で始まる必要があります。',
+    errSave:       '保存に失敗しました。',
+    msgSaved:      '✓ 設定を保存しました。',
+    msgTesting:    '接続テスト中...',
+    msgTestOk:     '✓ 接続成功！APIキーは有効です。',
+    msgTestBad:    '✗ APIキーが無効です。',
+    msgTestNet:    '✗ ネットワークエラー。接続を確認してください。',
+    errTestNoKey:  'テストするにはAPIキーを入力してください。',
+    msgTestHttp:   (s) => `✗ エラー: HTTP ${s}`,
+  },
+  zh: {
+    pageTitle:     'Sidekick AI — 设置',
+    subtitle:      '设置',
+    labelRequired: '必填',
+    hintApiKey:    'API 密钥仅存储在 <code>chrome.storage.local</code> 中，不会发送到 <code>api.openai.com</code> 以外的地方。',
+    labelLang:     '输出语言',
+    hintLang:      '选择摘要和问答的输出语言。源文档将始终以英语进行处理。',
+    labelModel:    '模型',
+    btnSave:       '保存',
+    btnTest:       '测试连接',
+    footerHint:    '在此处获取 API 密钥：',
+    errNoKey:      '请输入 API 密钥。',
+    errBadKey:     'API 密钥必须以 "sk-" 开头。',
+    errSave:       '保存失败。',
+    msgSaved:      '✓ 设置已保存。',
+    msgTesting:    '正在测试连接...',
+    msgTestOk:     '✓ 连接成功！API 密钥有效。',
+    msgTestBad:    '✗ API 密钥无效。',
+    msgTestNet:    '✗ 网络错误。请检查您的连接。',
+    errTestNoKey:  '请输入 API 密钥后再测试。',
+    msgTestHttp:   (s) => `✗ 错误：HTTP ${s}`,
+  },
+};
+
+function getUI(lang) { return OPTIONS_UI[lang] ?? OPTIONS_UI.en; }
+
+let currentUI = OPTIONS_UI.en;
+
+function applyUI(lang) {
+  currentUI = getUI(lang);
+  document.title = currentUI.pageTitle;
+  document.getElementById('subtitle').textContent       = currentUI.subtitle;
+  document.getElementById('label-required').textContent = currentUI.labelRequired;
+  document.getElementById('hint-api-key').innerHTML     = currentUI.hintApiKey;
+  document.getElementById('label-lang').textContent     = currentUI.labelLang;
+  document.getElementById('hint-lang').innerHTML        = currentUI.hintLang;
+  document.getElementById('label-model').textContent    = currentUI.labelModel;
+  btnSave.textContent = currentUI.btnSave;
+  btnTest.textContent = currentUI.btnTest;
+  document.getElementById('footer-hint').textContent    = currentUI.footerHint;
+}
+
 // ─── Load saved values ────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   const { openai_api_key, openai_model, output_language } = await chrome.storage.local.get([
@@ -16,7 +104,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (openai_api_key)  inputApiKey.value = openai_api_key;
   if (openai_model)    selectModel.value = openai_model;
   if (output_language) selectLang.value  = output_language;
+  applyUI(output_language || 'en');
 });
+
+// ─── Live language preview ────────────────────────────────────────────────────
+selectLang.addEventListener('change', () => applyUI(selectLang.value));
 
 // ─── Show / hide API key ──────────────────────────────────────────────────────
 btnToggleKey.addEventListener('click', () => {
@@ -30,21 +122,15 @@ btnSave.addEventListener('click', async () => {
   const key   = inputApiKey.value.trim();
   const model = selectModel.value;
 
-  if (!key) {
-    showStatus('APIキーを入力してください。', 'error');
-    return;
-  }
-  if (!key.startsWith('sk-')) {
-    showStatus('APIキーは "sk-" で始まる必要があります。', 'error');
-    return;
-  }
+  if (!key) { showStatus(currentUI.errNoKey, 'error'); return; }
+  if (!key.startsWith('sk-')) { showStatus(currentUI.errBadKey, 'error'); return; }
 
   btnSave.disabled = true;
   try {
     await chrome.storage.local.set({ openai_api_key: key, openai_model: model, output_language: selectLang.value });
-    showStatus('✓ 設定を保存しました。', 'success');
+    showStatus(currentUI.msgSaved, 'success');
   } catch {
-    showStatus('保存に失敗しました。', 'error');
+    showStatus(currentUI.errSave, 'error');
   } finally {
     btnSave.disabled = false;
   }
@@ -53,29 +139,24 @@ btnSave.addEventListener('click', async () => {
 // ─── Connection test ──────────────────────────────────────────────────────────
 btnTest.addEventListener('click', async () => {
   const key = inputApiKey.value.trim();
-  if (!key) {
-    showStatus('テストするにはAPIキーを入力してください。', 'error');
-    return;
-  }
+  if (!key) { showStatus(currentUI.errTestNoKey, 'error'); return; }
 
   btnTest.disabled = true;
-  showStatus('接続テスト中...', 'info');
+  showStatus(currentUI.msgTesting, 'info');
 
   try {
-    // Lightweight call: list models (no token consumption)
     const res = await fetch('https://api.openai.com/v1/models', {
       headers: { Authorization: `Bearer ${key}` },
     });
-
     if (res.ok) {
-      showStatus('✓ 接続成功！APIキーは有効です。', 'success');
+      showStatus(currentUI.msgTestOk, 'success');
     } else if (res.status === 401) {
-      showStatus('✗ APIキーが無効です。', 'error');
+      showStatus(currentUI.msgTestBad, 'error');
     } else {
-      showStatus(`✗ エラー: HTTP ${res.status}`, 'error');
+      showStatus(currentUI.msgTestHttp(res.status), 'error');
     }
   } catch {
-    showStatus('✗ ネットワークエラー。接続を確認してください。', 'error');
+    showStatus(currentUI.msgTestNet, 'error');
   } finally {
     btnTest.disabled = false;
   }
