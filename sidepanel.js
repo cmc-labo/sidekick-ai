@@ -2,18 +2,82 @@
  * Sidekick AI – Side Panel
  *
  * Features:
- *  - Prefetch page content on panel open (reduces click-to-API latency)
- *  - 3-line structured summary streamed from OpenAI
- *  - Context-aware multi-turn QA grounded in page content
- *  - Persistent history saved to chrome.storage.local (up to 500 entries)
- *    with full-text search and Markdown export (Notion-compatible)
+ *  - Prefetch page content on panel open (minimises click-to-API latency)
+ *  - 3-line structured summary streamed from OpenAI in English / 日本語 / 中文
+ *  - Context-aware multi-turn QA in the selected language
+ *  - Persistent history saved to chrome.storage.local with language metadata
  */
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 const DEFAULT_MODEL  = 'gpt-4.1-nano';
+const DEFAULT_LANG   = 'en';
 const HISTORY_KEY    = 'summary_history';
 const MAX_ENTRIES    = 500;
-const MAX_QA_HISTORY = 8;  // rolling window: last 4 turns
+const MAX_QA_HISTORY = 8;
+
+// ─── Language configuration ───────────────────────────────────────────────────
+const LANG_CONFIG = {
+  en: {
+    name:          'English',
+    labels:        ['Conclusion', 'Background', 'Next Action'],
+    // Regex patterns to detect each label at the start of a streamed line
+    re: [
+      /^Conclusion[：:]\s*/i,
+      /^Background[：:]\s*/i,
+      /^Next\s*Action[：:]\s*/i,
+    ],
+    // Lines used inside the system prompt to describe the output format
+    promptLines: [
+      'Conclusion: [core finding or conclusion — 1 sentence]',
+      'Background: [background, problem, or motivation — 1 sentence]',
+      'Next Action: [what the reader should do or consider next — 1 sentence]',
+    ],
+    summaryLang:   'English',
+    qaLang:        'English',
+    qaPlaceholder: 'e.g. What are the specific conditions of this experiment?',
+    qaReset:       'Ask anything about this page',
+  },
+  ja: {
+    name:          '日本語',
+    labels:        ['結論', '背景', 'ネクストアクション'],
+    re: [
+      /^結論[：:]\s*/,
+      /^背景[：:]\s*/,
+      /^ネクストアクション[：:]\s*/,
+    ],
+    promptLines: [
+      '結論: [核心的な発見や結論 — 1文、最大60文字]',
+      '背景: [背景・問題・動機 — 1文、最大60文字]',
+      'ネクストアクション: [読者が次にすべきこと — 1文、最大60文字]',
+    ],
+    summaryLang:   'Japanese',
+    qaLang:        'Japanese',
+    qaPlaceholder: '例: この実験の具体的な条件は？',
+    qaReset:       '気になったことをそのまま質問してみてください',
+  },
+  zh: {
+    name:          '中文',
+    labels:        ['结论', '背景', '下一步行动'],
+    re: [
+      /^结论[：:]\s*/,
+      /^背景[：:]\s*/,
+      /^下一步行动[：:]\s*/,
+    ],
+    promptLines: [
+      '结论: [核心发现或结论 — 1句话，最多60个字]',
+      '背景: [背景、问题或动机 — 1句话，最多60个字]',
+      '下一步行动: [读者应该做什么 — 1句话，最多60个字]',
+    ],
+    summaryLang:   'Chinese (Simplified)',
+    qaLang:        'Chinese (Simplified)',
+    qaPlaceholder: '例如：这个实验的具体条件是什么？',
+    qaReset:       '可以直接提问关于本页面的任何问题',
+  },
+};
+
+function getLangConfig(code) {
+  return LANG_CONFIG[code] ?? LANG_CONFIG[DEFAULT_LANG];
+}
 
 // ─── DOM refs ─────────────────────────────────────────────────────────────────
 const tabSummarize    = document.getElementById('tab-summarize');
@@ -46,7 +110,7 @@ const textConclusion  = document.getElementById('text-conclusion');
 const textBackground  = document.getElementById('text-background');
 const textNext        = document.getElementById('text-next');
 
-// ─── Tab state ────────────────────────────────────────────────────────────────
+// ─── Tab / state management ───────────────────────────────────────────────────
 let activeTab          = 'summarize';
 let lastSummarizeState = 'idle';
 
@@ -54,7 +118,7 @@ const STATES = ['idle', 'loading', 'error', 'result'];
 
 function showState(name) {
   lastSummarizeState = name;
-  if (activeTab !== 'summarize') return; // don't touch UI while on history tab
+  if (activeTab !== 'summarize') return;
   STATES.forEach((s) =>
     document.getElementById(`state-${s}`).classList.toggle('hidden', s !== name)
   );
@@ -66,7 +130,6 @@ function switchTab(tab) {
   tabHistory.classList.toggle('tab-active',   tab === 'history');
 
   const historyView = document.getElementById('state-history');
-
   if (tab === 'history') {
     STATES.forEach((s) => document.getElementById(`state-${s}`).classList.add('hidden'));
     pageInfo.classList.add('hidden');
@@ -79,11 +142,7 @@ function switchTab(tab) {
   }
 }
 
-// ─── UI helpers ───────────────────────────────────────────────────────────────
-function showLoading(msg) {
-  loadingText.textContent = msg;
-  showState('loading');
-}
+function showLoading(msg) { loadingText.textContent = msg; showState('loading'); }
 
 function showError(msg, showSettingsButton = false, hint = '') {
   errorMessage.textContent = msg;
@@ -91,6 +150,18 @@ function showError(msg, showSettingsButton = false, hint = '') {
   errorHint.textContent = hint;
   errorHint.classList.toggle('hidden', !hint);
   showState('error');
+}
+
+// ─── Card label update ────────────────────────────────────────────────────────
+const CARD_ICONS = ['◆', '◇', '▷'];
+const CARD_KEYS  = ['conclusion', 'background', 'nextAction'];
+
+function updateCardLabels(lang) {
+  const lc = getLangConfig(lang);
+  CARD_KEYS.forEach((key, i) => {
+    const el = document.querySelector(`[data-key="${key}"]`);
+    if (el) el.textContent = lc.labels[i];
+  });
 }
 
 // ─── API Key warning ──────────────────────────────────────────────────────────
@@ -103,7 +174,7 @@ chrome.storage.onChanged.addListener((changes) => {
   if ('openai_api_key' in changes) refreshWarning();
 });
 
-// ─── Content prefetch cache ───────────────────────────────────────────────────
+// ─── Content prefetch ─────────────────────────────────────────────────────────
 const prefetch = { tabId: null, url: null, data: null };
 
 async function prefetchContent() {
@@ -122,33 +193,35 @@ let currentSummary = '';
 let chatHistory    = [];
 let isAnswering    = false;
 
-function resetQA() {
+function resetQA(lang) {
   chatHistory    = [];
   currentSummary = '';
-  qaHistory.innerHTML = '<p class="qa-placeholder">気になったことをそのまま質問してみてください</p>';
+  const lc = getLangConfig(lang);
+  qaHistory.innerHTML    = `<p class="qa-placeholder">${lc.qaReset}</p>`;
+  qaInput.placeholder    = lc.qaPlaceholder;
 }
 
 // ─── Prompts ──────────────────────────────────────────────────────────────────
-const SUMMARY_SYSTEM =
-  'Summarize the following English technical document in Japanese. ' +
-  'Output EXACTLY 3 lines, nothing else:\n' +
-  '結論: [core finding or conclusion — 1 sentence]\n' +
-  '背景: [background, problem, or motivation — 1 sentence]\n' +
-  'ネクストアクション: [what the reader should do or consider next — 1 sentence]\n' +
-  'Max 60 Japanese characters per line. No other text.';
-
-function buildSummaryMessages(title, text) {
+function buildSummaryMessages(title, text, lang) {
+  const lc = getLangConfig(lang);
+  const system =
+    `Summarize the following English technical document in ${lc.summaryLang}. ` +
+    'Output EXACTLY 3 lines, nothing else:\n' +
+    lc.promptLines.join('\n') + '\n' +
+    'No other text.';
   return [
-    { role: 'system', content: SUMMARY_SYSTEM },
+    { role: 'system', content: system },
     { role: 'user',   content: `Title: ${title}\n${text}` },
   ];
 }
 
-function buildQAMessages(question) {
+function buildQAMessages(question, lang) {
   const { title, text } = currentContext;
+  const lc = getLangConfig(lang);
   const system =
     'You are a helpful assistant answering questions about the following technical document. ' +
-    'Answer concisely in Japanese. Base your answers strictly on the document content. ' +
+    `Answer concisely in ${lc.qaLang}. ` +
+    'Base your answers strictly on the document content. ' +
     'If the answer is not in the document, say so clearly.\n\n' +
     `Title: ${title}\n---\n${text}`;
   return [
@@ -159,19 +232,14 @@ function buildQAMessages(question) {
   ];
 }
 
-// ─── Summary stream parser ────────────────────────────────────────────────────
-const LABEL_RE = {
-  conclusion: /^結論[：:]\s*/,
-  background: /^背景[：:]\s*/,
-  next:        /^ネクストアクション[：:]\s*/,
-};
-
-function renderSummaryStream(raw) {
+// ─── Stream parser ────────────────────────────────────────────────────────────
+function renderSummaryStream(raw, lang) {
+  const lc = getLangConfig(lang);
   for (const line of raw.split('\n')) {
     const t = line.trim();
-    if (LABEL_RE.conclusion.test(t))      textConclusion.textContent = t.replace(LABEL_RE.conclusion, '');
-    else if (LABEL_RE.background.test(t)) textBackground.textContent = t.replace(LABEL_RE.background, '');
-    else if (LABEL_RE.next.test(t))       textNext.textContent       = t.replace(LABEL_RE.next, '');
+    if (lc.re[0].test(t))      textConclusion.textContent = t.replace(lc.re[0], '');
+    else if (lc.re[1].test(t)) textBackground.textContent = t.replace(lc.re[1], '');
+    else if (lc.re[2].test(t)) textNext.textContent       = t.replace(lc.re[2], '');
   }
 }
 
@@ -220,21 +288,22 @@ async function summarize() {
   btnRetry.disabled     = true;
   pageInfo.classList.add('hidden');
 
-  const [{ openai_api_key, openai_model }, [tab]] = await Promise.all([
-    chrome.storage.local.get(['openai_api_key', 'openai_model']),
+  const [{ openai_api_key, openai_model, output_language }, [tab]] = await Promise.all([
+    chrome.storage.local.get(['openai_api_key', 'openai_model', 'output_language']),
     chrome.tabs.query({ active: true, currentWindow: true }),
   ]);
 
   if (!openai_api_key) { showError('OpenAI APIキーが設定されていません。', true); enableSummarizeButtons(); return; }
   if (!tab?.id)        { showError('アクティブなタブが見つかりません。');            enableSummarizeButtons(); return; }
 
-  const model  = openai_model || DEFAULT_MODEL;
+  const model  = openai_model    || DEFAULT_MODEL;
+  const lang   = output_language || DEFAULT_LANG;
   const tabId  = tab.id;
   const tabUrl = tab.url;
 
   let contentData = (prefetch.tabId === tabId && prefetch.url === tabUrl) ? prefetch.data : null;
   if (!contentData) {
-    showLoading('コンテンツを取得中...');
+    showLoading('Loading content...');
     try {
       const res = await chrome.tabs.sendMessage(tabId, { type: 'GET_CONTENT' });
       if (!res?.ok) throw new Error(res?.error ?? 'unknown');
@@ -250,8 +319,10 @@ async function summarize() {
   const { title, text } = contentData;
   if (!text || text.length < 100) { showError('要約できるテキストが見つかりませんでした。'); enableSummarizeButtons(); return; }
 
+  // Apply language settings to UI before streaming starts
+  updateCardLabels(lang);
   currentContext = { title, text };
-  resetQA();
+  resetQA(lang);
   updatePageInfo(title, tabUrl);
 
   textConclusion.textContent = '';
@@ -263,9 +334,9 @@ async function summarize() {
 
   let accumulated = '';
   try {
-    await streamTokens(openai_api_key, model, buildSummaryMessages(title, text), 250, (delta) => {
+    await streamTokens(openai_api_key, model, buildSummaryMessages(title, text, lang), 250, (delta) => {
       accumulated += delta;
-      renderSummaryStream(accumulated);
+      renderSummaryStream(accumulated, lang);
     });
   } catch (err) {
     const isAuth = err.message.includes('無効') || err.message.includes('401');
@@ -276,18 +347,19 @@ async function summarize() {
 
   streamEls.forEach((el) => el.classList.remove('streaming'));
 
+  const lc = getLangConfig(lang);
   currentSummary = [
-    textConclusion.textContent && `結論: ${textConclusion.textContent}`,
-    textBackground.textContent && `背景: ${textBackground.textContent}`,
-    textNext.textContent       && `ネクストアクション: ${textNext.textContent}`,
+    textConclusion.textContent && `${lc.labels[0]}: ${textConclusion.textContent}`,
+    textBackground.textContent && `${lc.labels[1]}: ${textBackground.textContent}`,
+    textNext.textContent       && `${lc.labels[2]}: ${textNext.textContent}`,
   ].filter(Boolean).join('\n');
 
-  // Auto-save to history
   const count = await saveToHistory(
     title, tabUrl,
     textConclusion.textContent,
     textBackground.textContent,
     textNext.textContent,
+    lang,
   );
   updateHistoryBadge(count);
 
@@ -309,19 +381,26 @@ async function handleAsk() {
   const answerBubble = addBubble('assistant', '');
   answerBubble.classList.add('streaming');
 
-  const { openai_api_key, openai_model } = await chrome.storage.local.get(['openai_api_key', 'openai_model']);
-  let answer = '';
+  const { openai_api_key, openai_model, output_language } = await chrome.storage.local.get([
+    'openai_api_key', 'openai_model', 'output_language',
+  ]);
+  const lang   = output_language || DEFAULT_LANG;
+  let   answer = '';
 
   try {
-    await streamTokens(openai_api_key, openai_model || DEFAULT_MODEL, buildQAMessages(question), 400, (delta) => {
-      answer += delta;
-      answerBubble.textContent = answer;
-      qaHistory.scrollTop = qaHistory.scrollHeight;
-    });
-    chatHistory.push({ role: 'user', content: question });
-    chatHistory.push({ role: 'assistant', content: answer });
+    await streamTokens(
+      openai_api_key, openai_model || DEFAULT_MODEL,
+      buildQAMessages(question, lang), 400,
+      (delta) => {
+        answer += delta;
+        answerBubble.textContent = answer;
+        qaHistory.scrollTop = qaHistory.scrollHeight;
+      }
+    );
+    chatHistory.push({ role: 'user',      content: question });
+    chatHistory.push({ role: 'assistant', content: answer   });
   } catch (err) {
-    answerBubble.textContent = `エラー: ${err.message}`;
+    answerBubble.textContent = `Error: ${err.message}`;
     answerBubble.classList.add('bubble-error');
   } finally {
     answerBubble.classList.remove('streaming');
@@ -343,18 +422,19 @@ function addBubble(role, content) {
 }
 
 // ─── History: storage ─────────────────────────────────────────────────────────
-async function saveToHistory(title, url, conclusion, background, nextAction) {
+async function saveToHistory(title, url, conclusion, background, nextAction, lang) {
   const { [HISTORY_KEY]: hist = [] } = await chrome.storage.local.get(HISTORY_KEY);
   const entry = {
     id:      Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
-    title:   title || '(タイトルなし)',
+    title:   title || '(no title)',
     url,
     favicon: getFaviconUrl(url),
+    language: lang || DEFAULT_LANG,
     summary: { conclusion, background, nextAction },
     savedAt: Date.now(),
   };
   const idx = hist.findIndex((e) => e.url === url);
-  if (idx >= 0) hist[idx] = entry;              // update existing
+  if (idx >= 0) hist[idx] = entry;
   else { hist.unshift(entry); hist.length = Math.min(hist.length, MAX_ENTRIES); }
   await chrome.storage.local.set({ [HISTORY_KEY]: hist });
   return hist.length;
@@ -433,6 +513,9 @@ function renderHistoryList(entries) {
 }
 
 function renderHistoryEntry(entry) {
+  // Use the language stored with the entry; fall back to default
+  const lc = getLangConfig(entry.language);
+
   let domain = '';
   try { domain = new URL(entry.url).hostname.replace(/^www\./, ''); } catch {}
   const date = new Date(entry.savedAt).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' });
@@ -441,7 +524,7 @@ function renderHistoryEntry(entry) {
   el.className  = 'history-entry';
   el.dataset.id = entry.id;
 
-  // ── Top row ────────────────────────────────────────────
+  // Top row
   const top = document.createElement('div');
   top.className = 'h-entry-top';
 
@@ -453,72 +536,71 @@ function renderHistoryEntry(entry) {
   const meta = document.createElement('div');
   meta.className = 'h-meta';
   const titleEl = document.createElement('div');
-  titleEl.className   = 'h-title';
-  titleEl.textContent = entry.title;
+  titleEl.className = 'h-title'; titleEl.textContent = entry.title;
   const sub = document.createElement('div');
-  sub.className   = 'h-domain-date';
+  sub.className = 'h-domain-date';
   sub.textContent = domain ? `${domain} · ${date}` : date;
+
+  // Language badge
+  const langBadge = document.createElement('span');
+  langBadge.className   = 'h-lang-badge';
+  langBadge.textContent = lc.name;
+  sub.append(' '); sub.appendChild(langBadge);
+
   meta.append(titleEl, sub);
 
   const btnExpand = document.createElement('button');
-  btnExpand.className   = 'btn-he-expand';
-  btnExpand.title       = '展開 / 折りたたむ';
+  btnExpand.className = 'btn-he-expand'; btnExpand.title = '展開';
   btnExpand.textContent = '▾';
 
   const btnDel = document.createElement('button');
-  btnDel.className   = 'btn-he-delete';
-  btnDel.title       = '削除';
+  btnDel.className = 'btn-he-delete'; btnDel.title = '削除';
   btnDel.textContent = '✕';
 
   top.append(fav, meta, btnExpand, btnDel);
 
-  // ── Snippet (collapsed) ────────────────────────────────
+  // Snippet
   const snippet = document.createElement('div');
-  snippet.className   = 'h-snippet';
+  snippet.className = 'h-snippet';
   const s = entry.summary.conclusion;
   snippet.textContent = s.length > 55 ? s.slice(0, 55) + '…' : s;
 
-  // ── Detail (expanded) ──────────────────────────────────
+  // Detail (expanded)
   const detail = document.createElement('div');
   detail.className = 'h-detail hidden';
 
-  for (const { cls, icon, label, text } of [
-    { cls: 'h-conclusion', icon: '◆', label: '結論',              text: entry.summary.conclusion },
-    { cls: 'h-background', icon: '◇', label: '背景',              text: entry.summary.background },
-    { cls: 'h-next',       icon: '▷', label: 'ネクストアクション', text: entry.summary.nextAction  },
-  ]) {
+  for (const [i, { cls, text }] of [
+    { cls: 'h-conclusion', text: entry.summary.conclusion },
+    { cls: 'h-background', text: entry.summary.background },
+    { cls: 'h-next',       text: entry.summary.nextAction  },
+  ].entries()) {
     const card = document.createElement('div');
     card.className = `h-card ${cls}`;
     const lbl = document.createElement('div');
     lbl.className   = 'h-card-label';
-    lbl.textContent = `${icon} ${label}`;
+    lbl.textContent = `${CARD_ICONS[i]} ${lc.labels[i]}`;
     const p = document.createElement('p');
     p.textContent = text;
     card.append(lbl, p);
     detail.appendChild(card);
   }
 
-  // actions row inside detail
   const actions = document.createElement('div');
   actions.className = 'h-entry-actions';
 
   const btnMd = document.createElement('button');
-  btnMd.className   = 'btn-secondary h-btn';
-  btnMd.textContent = '⊕ Markdown コピー';
+  btnMd.className = 'btn-secondary h-btn'; btnMd.textContent = '⊕ Markdown';
 
   const linkOpen = document.createElement('a');
-  linkOpen.className        = 'btn-secondary h-btn';
-  linkOpen.href             = entry.url;
-  linkOpen.target           = '_blank';
-  linkOpen.rel              = 'noopener noreferrer';
-  linkOpen.textContent      = '↗ 開く';
+  linkOpen.className = 'btn-secondary h-btn';
+  linkOpen.href = entry.url; linkOpen.target = '_blank'; linkOpen.rel = 'noopener noreferrer';
+  linkOpen.textContent = '↗ 開く';
 
   actions.append(btnMd, linkOpen);
   detail.appendChild(actions);
-
   el.append(top, snippet, detail);
 
-  // ── Toggle expand ──────────────────────────────────────
+  // Toggle
   function toggleExpand() {
     const isOpen = !detail.classList.contains('hidden');
     detail.classList.toggle('hidden',  isOpen);
@@ -528,7 +610,7 @@ function renderHistoryEntry(entry) {
   }
   top.addEventListener('click', (e) => { if (e.target !== btnDel) toggleExpand(); });
 
-  // ── Delete ─────────────────────────────────────────────
+  // Delete
   btnDel.addEventListener('click', async (e) => {
     e.stopPropagation();
     const count = await deleteHistoryEntry(entry.id);
@@ -539,27 +621,29 @@ function renderHistoryEntry(entry) {
     updateHistoryBadge(count);
   });
 
-  // ── Markdown copy ──────────────────────────────────────
+  // Copy Markdown
   btnMd.addEventListener('click', async () => {
     await navigator.clipboard.writeText(buildMarkdown(entry));
-    btnMd.textContent = '✓ コピー済み';
-    setTimeout(() => { btnMd.textContent = '⊕ Markdown コピー'; }, 1800);
+    btnMd.textContent = '✓ Copied';
+    setTimeout(() => { btnMd.textContent = '⊕ Markdown'; }, 1800);
   });
 
   return el;
 }
 
 function buildMarkdown(entry) {
+  const lc   = getLangConfig(entry.language);
   const date = new Date(entry.savedAt).toLocaleDateString('ja-JP');
   return [
     `## ${entry.title}`,
     ``,
     `- **URL**: ${entry.url}`,
-    `- **保存日**: ${date}`,
+    `- **Date**: ${date}`,
+    `- **Language**: ${lc.name}`,
     ``,
-    `**結論**: ${entry.summary.conclusion}`,
-    `**背景**: ${entry.summary.background}`,
-    `**ネクストアクション**: ${entry.summary.nextAction}`,
+    `**${lc.labels[0]}**: ${entry.summary.conclusion}`,
+    `**${lc.labels[1]}**: ${entry.summary.background}`,
+    `**${lc.labels[2]}**: ${entry.summary.nextAction}`,
   ].join('\n');
 }
 
@@ -568,13 +652,14 @@ function getFaviconUrl(url) {
   catch { return ''; }
 }
 
-// ─── Copy summary to clipboard ────────────────────────────────────────────────
+// ─── Copy summary ─────────────────────────────────────────────────────────────
 btnCopy.addEventListener('click', async () => {
   const text = [
-    `結論: ${textConclusion.textContent}`,
-    `背景: ${textBackground.textContent}`,
-    `ネクストアクション: ${textNext.textContent}`,
-  ].join('\n');
+    textConclusion.textContent && `${document.querySelector('[data-key="conclusion"]').textContent}: ${textConclusion.textContent}`,
+    textBackground.textContent && `${document.querySelector('[data-key="background"]').textContent}: ${textBackground.textContent}`,
+    textNext.textContent       && `${document.querySelector('[data-key="nextAction"]').textContent}: ${textNext.textContent}`,
+  ].filter(Boolean).join('\n');
+
   try {
     await navigator.clipboard.writeText(text);
     copyIcon.textContent = '✓'; btnCopy.style.color = 'var(--accent-green)';
@@ -587,7 +672,7 @@ btnCopy.addEventListener('click', async () => {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function updatePageInfo(title, url) {
-  pageTitleEl.textContent = title || '(タイトルなし)';
+  pageTitleEl.textContent = title || '(no title)';
   try {
     const p = new URL(url);
     pageUrlEl.textContent             = p.hostname + p.pathname.slice(0, 40);
@@ -619,9 +704,8 @@ qaInput.addEventListener('keydown', (e) => {
 });
 
 historySearch.addEventListener('input', () => {
-  const q = historySearch.value;
-  btnClearSearch.classList.toggle('hidden', !q);
-  loadAndRenderHistory(q);
+  btnClearSearch.classList.toggle('hidden', !historySearch.value);
+  loadAndRenderHistory(historySearch.value);
 });
 
 btnClearSearch.addEventListener('click', () => {

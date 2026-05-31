@@ -1,5 +1,6 @@
 const inputApiKey   = document.getElementById('api-key');
 const selectModel   = document.getElementById('model');
+const selectLang    = document.getElementById('lang');
 const btnToggleKey  = document.getElementById('btn-toggle-key');
 const btnSave       = document.getElementById('btn-save');
 const btnTest       = document.getElementById('btn-test');
@@ -7,12 +8,14 @@ const statusEl      = document.getElementById('status');
 
 // ─── Load saved values ────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-  const { openai_api_key, openai_model } = await chrome.storage.local.get([
+  const { openai_api_key, openai_model, output_language } = await chrome.storage.local.get([
     'openai_api_key',
     'openai_model',
+    'output_language',
   ]);
-  if (openai_api_key) inputApiKey.value = openai_api_key;
-  if (openai_model)   selectModel.value = openai_model;
+  if (openai_api_key)  inputApiKey.value = openai_api_key;
+  if (openai_model)    selectModel.value = openai_model;
+  if (output_language) selectLang.value  = output_language;
 });
 
 // ─── Show / hide API key ──────────────────────────────────────────────────────
@@ -38,7 +41,7 @@ btnSave.addEventListener('click', async () => {
 
   btnSave.disabled = true;
   try {
-    await chrome.storage.local.set({ openai_api_key: key, openai_model: model });
+    await chrome.storage.local.set({ openai_api_key: key, openai_model: model, output_language: selectLang.value });
     showStatus('✓ 設定を保存しました。', 'success');
   } catch {
     showStatus('保存に失敗しました。', 'error');
