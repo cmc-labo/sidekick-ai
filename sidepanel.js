@@ -215,6 +215,13 @@ function getUIStrings(lang) {
   return UI_STRINGS[lang] ?? UI_STRINGS[DEFAULT_LANG];
 }
 
+// ─── Font size ────────────────────────────────────────────────────────────────
+const FONT_SIZE_MAP = { small: '12px', medium: '13px', large: '15px' };
+
+function applyFontSize(size) {
+  document.documentElement.style.setProperty('--font-base', FONT_SIZE_MAP[size] ?? '13px');
+}
+
 // ─── DOM refs ─────────────────────────────────────────────────────────────────
 const tabSummarize    = document.getElementById('tab-summarize');
 const tabHistory      = document.getElementById('tab-history');
@@ -348,6 +355,7 @@ chrome.storage.onChanged.addListener((changes) => {
     applyUIStrings(lang);
     if (activeTab === 'history') loadAndRenderHistory(historySearch.value);
   }
+  if ('font_size' in changes) applyFontSize(changes.font_size.newValue || 'medium');
 });
 
 // ─── Content prefetch ─────────────────────────────────────────────────────────
@@ -911,8 +919,9 @@ btnClearAll.addEventListener('click', async () => {
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
-  const { output_language } = await chrome.storage.local.get('output_language');
+  const { output_language, font_size } = await chrome.storage.local.get(['output_language', 'font_size']);
   applyUIStrings(output_language || DEFAULT_LANG);
+  applyFontSize(font_size || 'medium');
   await Promise.all([refreshWarning(), prefetchContent(), updateHistoryBadge()]);
 }
 
