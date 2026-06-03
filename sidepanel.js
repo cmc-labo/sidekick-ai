@@ -849,13 +849,13 @@ function getFaviconUrl(url) {
 }
 
 // ─── Copy summary ─────────────────────────────────────────────────────────────
-btnCopy.addEventListener('click', async () => {
+async function copySummary() {
   const text = [
     textConclusion.textContent && `${document.querySelector('[data-key="conclusion"]').textContent}: ${textConclusion.textContent}`,
     textBackground.textContent && `${document.querySelector('[data-key="background"]').textContent}: ${textBackground.textContent}`,
     textNext.textContent       && `${document.querySelector('[data-key="nextAction"]').textContent}: ${textNext.textContent}`,
   ].filter(Boolean).join('\n');
-
+  if (!text) return;
   try {
     await navigator.clipboard.writeText(text);
     copyIcon.textContent = '✓'; btnCopy.style.color = 'var(--accent-green)';
@@ -864,7 +864,9 @@ btnCopy.addEventListener('click', async () => {
     copyIcon.textContent = '✗';
     setTimeout(() => { copyIcon.textContent = '⊕'; }, 1800);
   }
-});
+}
+
+btnCopy.addEventListener('click', copySummary);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function updatePageInfo(title, url) {
@@ -897,6 +899,15 @@ btnGotoSettings.addEventListener('click', openOptions);
 btnAsk.addEventListener('click', handleAsk);
 qaInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAsk(); }
+});
+
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'c' && !e.shiftKey) {
+    if (lastSummarizeState !== 'result') return;
+    if (window.getSelection()?.toString()) return;
+    e.preventDefault();
+    copySummary();
+  }
 });
 
 historySearch.addEventListener('input', () => {
