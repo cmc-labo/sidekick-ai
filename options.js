@@ -2,6 +2,7 @@ const inputApiKey    = document.getElementById('api-key');
 const selectModel    = document.getElementById('model');
 const selectLang     = document.getElementById('lang');
 const selectFontSize = document.getElementById('font-size');
+const checkAutoCopy  = document.getElementById('auto-copy');
 const btnToggleKey   = document.getElementById('btn-toggle-key');
 const btnSave        = document.getElementById('btn-save');
 const btnTest        = document.getElementById('btn-test');
@@ -19,6 +20,8 @@ const OPTIONS_UI = {
     labelFontSize:    'Font Size',
     fontSizeOptions:  ['Small', 'Medium (default)', 'Large'],
     labelModel:       'Model',
+    labelAutoCopy:    'Auto-copy summary to clipboard',
+    hintAutoCopy:     'Automatically copies the summary to the clipboard when summarization completes.',
     btnSave:          'Save',
     btnTest:          'Test Connection',
     footerHint:       'Get your API key at ',
@@ -43,6 +46,8 @@ const OPTIONS_UI = {
     labelFontSize:    '文字サイズ',
     fontSizeOptions:  ['小', '中（デフォルト）', '大'],
     labelModel:       'モデル',
+    labelAutoCopy:    '要約を自動でクリップボードにコピー',
+    hintAutoCopy:     '要約が完了したとき、自動的にクリップボードへコピーします。',
     btnSave:          '保存',
     btnTest:          '接続テスト',
     footerHint:       'APIキーの取得はこちら：',
@@ -67,6 +72,8 @@ const OPTIONS_UI = {
     labelFontSize:    '字体大小',
     fontSizeOptions:  ['小', '中（默认）', '大'],
     labelModel:       '模型',
+    labelAutoCopy:    '自动将摘要复制到剪贴板',
+    hintAutoCopy:     '摘要完成后自动将内容复制到剪贴板。',
     btnSave:          '保存',
     btnTest:          '测试连接',
     footerHint:       '在此处获取 API 密钥：',
@@ -99,6 +106,8 @@ function applyUI(lang) {
   const fontSizeOpts = document.querySelectorAll('#font-size option');
   currentUI.fontSizeOptions.forEach((text, i) => { if (fontSizeOpts[i]) fontSizeOpts[i].textContent = text; });
   document.getElementById('label-model').textContent    = currentUI.labelModel;
+  document.getElementById('label-auto-copy').textContent = currentUI.labelAutoCopy;
+  document.getElementById('hint-auto-copy').textContent  = currentUI.hintAutoCopy;
   btnSave.textContent = currentUI.btnSave;
   btnTest.textContent = currentUI.btnTest;
   document.getElementById('footer-hint').textContent    = currentUI.footerHint;
@@ -106,16 +115,18 @@ function applyUI(lang) {
 
 // ─── Load saved values ────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-  const { openai_api_key, openai_model, output_language, font_size } = await chrome.storage.local.get([
+  const { openai_api_key, openai_model, output_language, font_size, auto_copy } = await chrome.storage.local.get([
     'openai_api_key',
     'openai_model',
     'output_language',
     'font_size',
+    'auto_copy',
   ]);
   if (openai_api_key) inputApiKey.value   = openai_api_key;
   if (openai_model)   selectModel.value   = openai_model;
   if (output_language) selectLang.value   = output_language;
-  selectFontSize.value = font_size || 'medium';
+  selectFontSize.value    = font_size || 'medium';
+  checkAutoCopy.checked   = Boolean(auto_copy);
   applyUI(output_language || 'en');
 });
 
@@ -143,6 +154,7 @@ btnSave.addEventListener('click', async () => {
       openai_model:    selectModel.value,
       output_language: selectLang.value,
       font_size:       selectFontSize.value,
+      auto_copy:       checkAutoCopy.checked,
     });
     showStatus(currentUI.msgSaved, 'success');
   } catch {

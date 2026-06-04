@@ -139,6 +139,22 @@ body {
   font-size: 10px;
 }
 
+/* ─── Checkbox ───────────────────────────────────────────── */
+.field-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.checkbox {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent-blue);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
 /* ─── Buttons ────────────────────────────────────────────── */
 .actions {
   display: flex;

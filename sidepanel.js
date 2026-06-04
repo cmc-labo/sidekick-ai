@@ -222,6 +222,9 @@ function applyFontSize(size) {
   document.documentElement.style.setProperty('--font-base', FONT_SIZE_MAP[size] ?? '13px');
 }
 
+// ─── Auto-copy ────────────────────────────────────────────────────────────────
+let autoCopyEnabled = false;
+
 // ─── DOM refs ─────────────────────────────────────────────────────────────────
 const tabSummarize    = document.getElementById('tab-summarize');
 const tabHistory      = document.getElementById('tab-history');
@@ -356,6 +359,7 @@ chrome.storage.onChanged.addListener((changes) => {
     if (activeTab === 'history') loadAndRenderHistory(historySearch.value);
   }
   if ('font_size' in changes) applyFontSize(changes.font_size.newValue || 'medium');
+  if ('auto_copy' in changes) autoCopyEnabled = Boolean(changes.auto_copy.newValue);
 });
 
 // ─── Content prefetch ─────────────────────────────────────────────────────────
@@ -550,6 +554,7 @@ async function summarize() {
   );
   updateHistoryBadge(count);
 
+  if (autoCopyEnabled) copySummary();
   enableSummarizeButtons();
   qaInput.focus();
 }
@@ -930,9 +935,10 @@ btnClearAll.addEventListener('click', async () => {
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
-  const { output_language, font_size } = await chrome.storage.local.get(['output_language', 'font_size']);
+  const { output_language, font_size, auto_copy } = await chrome.storage.local.get(['output_language', 'font_size', 'auto_copy']);
   applyUIStrings(output_language || DEFAULT_LANG);
   applyFontSize(font_size || 'medium');
+  autoCopyEnabled = Boolean(auto_copy);
   await Promise.all([refreshWarning(), prefetchContent(), updateHistoryBadge()]);
 }
 
