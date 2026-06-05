@@ -95,6 +95,7 @@ const UI_STRINGS = {
     btnCopyTitle:             'Copy to clipboard',
     btnRetry:                 '↺ Retry',
     qaSectionHint:            'Ask questions about this page',
+    btnClearQATitle:          'Clear chat',
     btnAskTitle:              'Send (Enter)',
     historySearchPlaceholder: 'Search by title, URL, or summary...',
     btnClearSearchTitle:      'Clear',
@@ -138,6 +139,7 @@ const UI_STRINGS = {
     btnCopyTitle:             'クリップボードにコピー',
     btnRetry:                 '↺ 再要約',
     qaSectionHint:            'ページの内容について質問できます',
+    btnClearQATitle:          '会話をクリア',
     btnAskTitle:              '送信 (Enter)',
     historySearchPlaceholder: 'タイトル・URL・要約で検索...',
     btnClearSearchTitle:      'クリア',
@@ -181,6 +183,7 @@ const UI_STRINGS = {
     btnCopyTitle:             '复制到剪贴板',
     btnRetry:                 '↺ 重新摘要',
     qaSectionHint:            '可以就本页面内容提问',
+    btnClearQATitle:          '清除对话',
     btnAskTitle:              '发送 (Enter)',
     historySearchPlaceholder: '按标题、URL 或摘要搜索...',
     btnClearSearchTitle:      '清除',
@@ -236,6 +239,7 @@ const btnCopy         = document.getElementById('btn-copy');
 const btnRetry        = document.getElementById('btn-retry');
 const btnGotoSettings = document.getElementById('btn-goto-settings');
 const btnAsk          = document.getElementById('btn-ask');
+const btnClearQA      = document.getElementById('btn-clear-qa');
 const btnClearSearch  = document.getElementById('btn-clear-search');
 const btnClearAll     = document.getElementById('btn-clear-all');
 const qaInput         = document.getElementById('qa-input');
@@ -323,6 +327,7 @@ function applyUIStrings(lang) {
   document.getElementById('retry-label').textContent = ui.btnRetry;
 
   document.getElementById('qa-section-hint').textContent = ui.qaSectionHint;
+  btnClearQA.title = ui.btnClearQATitle;
   btnAsk.title = ui.btnAskTitle;
 
   historySearch.placeholder = ui.historySearchPlaceholder;
@@ -387,6 +392,7 @@ function resetQA(lang) {
   const lc = getLangConfig(lang);
   qaHistory.innerHTML    = `<p class="qa-placeholder">${lc.qaReset}</p>`;
   qaInput.placeholder    = lc.qaPlaceholder;
+  btnClearQA.classList.add('hidden');
 }
 
 // ─── Prompts ──────────────────────────────────────────────────────────────────
@@ -608,6 +614,7 @@ async function handleAsk() {
 
 function addBubble(role, content) {
   qaHistory.querySelector('.qa-placeholder')?.remove();
+  btnClearQA.classList.remove('hidden');
   const bubble = document.createElement('div');
   bubble.className   = `qa-bubble qa-bubble-${role}`;
   bubble.textContent = content;
@@ -902,6 +909,7 @@ btnWarnSettings.addEventListener('click', openOptions);
 btnGotoSettings.addEventListener('click', openOptions);
 
 btnAsk.addEventListener('click', handleAsk);
+btnClearQA.addEventListener('click', () => resetQA(currentUILang));
 qaInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAsk(); }
 });

@@ -451,7 +451,22 @@ main {
   font-size: 10px;
   color: var(--text-muted);
   opacity: 0.7;
+  flex: 1;
 }
+
+.btn-qa-clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 10px;
+  color: var(--text-muted);
+  padding: 2px 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  transition: color var(--transition), background var(--transition);
+  line-height: 1;
+}
+.btn-qa-clear:hover { color: #f87171; background: rgba(248, 113, 113, 0.1); }
 
 /* Scrollable message history */
 .qa-history {
