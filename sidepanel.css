@@ -19,6 +19,17 @@
   --font-base: 13px;
 }
 
+/* ─── Light theme overrides ──────────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg: #f8f9fc;
+  --bg-card: #ffffff;
+  --bg-card-hover: #eef0f6;
+  --border: #dde1ee;
+  --text-primary: #1a202c;
+  --text-secondary: #4a5568;
+  --text-muted: #94a3b8;
+}
+
 /* ============================================================
    Reset & Base
    ============================================================ */

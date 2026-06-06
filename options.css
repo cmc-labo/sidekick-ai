@@ -14,6 +14,16 @@
   --transition: 0.18s ease;
 }
 
+/* ─── Light theme overrides ──────────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg: #f8f9fc;
+  --bg-card: #ffffff;
+  --border: #dde1ee;
+  --text-primary: #1a202c;
+  --text-secondary: #4a5568;
+  --text-muted: #94a3b8;
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {

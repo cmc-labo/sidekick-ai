@@ -2,6 +2,7 @@ const inputApiKey    = document.getElementById('api-key');
 const selectModel    = document.getElementById('model');
 const selectLang     = document.getElementById('lang');
 const selectFontSize = document.getElementById('font-size');
+const selectTheme    = document.getElementById('theme');
 const checkAutoCopy  = document.getElementById('auto-copy');
 const btnToggleKey   = document.getElementById('btn-toggle-key');
 const btnSave        = document.getElementById('btn-save');
@@ -19,6 +20,8 @@ const OPTIONS_UI = {
     hintLang:         'Language for summaries and Q&amp;A answers. Source documents are processed in English.',
     labelFontSize:    'Font Size',
     fontSizeOptions:  ['Small', 'Medium (default)', 'Large'],
+    labelTheme:       'Theme',
+    themeOptions:     ['Dark (default)', 'Light'],
     labelModel:       'Model',
     labelAutoCopy:    'Auto-copy summary to clipboard',
     hintAutoCopy:     'Automatically copies the summary to the clipboard when summarization completes.',
@@ -45,6 +48,8 @@ const OPTIONS_UI = {
     hintLang:         '要約・Q&amp;A の出力言語を選択します。入力ドキュメントは英語のまま処理されます。',
     labelFontSize:    '文字サイズ',
     fontSizeOptions:  ['小', '中（デフォルト）', '大'],
+    labelTheme:       'テーマ',
+    themeOptions:     ['ダーク（デフォルト）', 'ライト'],
     labelModel:       'モデル',
     labelAutoCopy:    '要約を自動でクリップボードにコピー',
     hintAutoCopy:     '要約が完了したとき、自動的にクリップボードへコピーします。',
@@ -71,6 +76,8 @@ const OPTIONS_UI = {
     hintLang:         '选择摘要和问答的输出语言。源文档将始终以英语进行处理。',
     labelFontSize:    '字体大小',
     fontSizeOptions:  ['小', '中（默认）', '大'],
+    labelTheme:       '主题',
+    themeOptions:     ['深色（默认）', '浅色'],
     labelModel:       '模型',
     labelAutoCopy:    '自动将摘要复制到剪贴板',
     hintAutoCopy:     '摘要完成后自动将内容复制到剪贴板。',
@@ -105,6 +112,9 @@ function applyUI(lang) {
   document.getElementById('label-font-size').textContent = currentUI.labelFontSize;
   const fontSizeOpts = document.querySelectorAll('#font-size option');
   currentUI.fontSizeOptions.forEach((text, i) => { if (fontSizeOpts[i]) fontSizeOpts[i].textContent = text; });
+  document.getElementById('label-theme').textContent = currentUI.labelTheme;
+  const themeOpts = document.querySelectorAll('#theme option');
+  currentUI.themeOptions.forEach((text, i) => { if (themeOpts[i]) themeOpts[i].textContent = text; });
   document.getElementById('label-model').textContent    = currentUI.labelModel;
   document.getElementById('label-auto-copy').textContent = currentUI.labelAutoCopy;
   document.getElementById('hint-auto-copy').textContent  = currentUI.hintAutoCopy;
@@ -114,21 +124,30 @@ function applyUI(lang) {
 }
 
 // ─── Load saved values ────────────────────────────────────────────────────────
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme || 'dark');
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
-  const { openai_api_key, openai_model, output_language, font_size, auto_copy } = await chrome.storage.local.get([
+  const { openai_api_key, openai_model, output_language, font_size, theme, auto_copy } = await chrome.storage.local.get([
     'openai_api_key',
     'openai_model',
     'output_language',
     'font_size',
+    'theme',
     'auto_copy',
   ]);
   if (openai_api_key) inputApiKey.value   = openai_api_key;
   if (openai_model)   selectModel.value   = openai_model;
   if (output_language) selectLang.value   = output_language;
   selectFontSize.value    = font_size || 'medium';
+  selectTheme.value       = theme || 'dark';
   checkAutoCopy.checked   = Boolean(auto_copy);
+  applyTheme(theme);
   applyUI(output_language || 'en');
 });
+
+selectTheme.addEventListener('change', () => applyTheme(selectTheme.value));
 
 // ─── Live language preview ────────────────────────────────────────────────────
 selectLang.addEventListener('change', () => applyUI(selectLang.value));
@@ -154,6 +173,7 @@ btnSave.addEventListener('click', async () => {
       openai_model:    selectModel.value,
       output_language: selectLang.value,
       font_size:       selectFontSize.value,
+      theme:           selectTheme.value,
       auto_copy:       checkAutoCopy.checked,
     });
     showStatus(currentUI.msgSaved, 'success');

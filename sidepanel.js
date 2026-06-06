@@ -225,6 +225,11 @@ function applyFontSize(size) {
   document.documentElement.style.setProperty('--font-base', FONT_SIZE_MAP[size] ?? '13px');
 }
 
+// ─── Theme ────────────────────────────────────────────────────────────────────
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme || 'dark');
+}
+
 // ─── Auto-copy ────────────────────────────────────────────────────────────────
 let autoCopyEnabled = false;
 
@@ -364,6 +369,7 @@ chrome.storage.onChanged.addListener((changes) => {
     if (activeTab === 'history') loadAndRenderHistory(historySearch.value);
   }
   if ('font_size' in changes) applyFontSize(changes.font_size.newValue || 'medium');
+  if ('theme' in changes) applyTheme(changes.theme.newValue);
   if ('auto_copy' in changes) autoCopyEnabled = Boolean(changes.auto_copy.newValue);
 });
 
@@ -943,9 +949,10 @@ btnClearAll.addEventListener('click', async () => {
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
-  const { output_language, font_size, auto_copy } = await chrome.storage.local.get(['output_language', 'font_size', 'auto_copy']);
+  const { output_language, font_size, theme, auto_copy } = await chrome.storage.local.get(['output_language', 'font_size', 'theme', 'auto_copy']);
   applyUIStrings(output_language || DEFAULT_LANG);
   applyFontSize(font_size || 'medium');
+  applyTheme(theme);
   autoCopyEnabled = Boolean(auto_copy);
   await Promise.all([refreshWarning(), prefetchContent(), updateHistoryBadge()]);
 }
