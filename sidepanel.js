@@ -264,6 +264,9 @@ const errorHint       = document.getElementById('error-hint');
 const textConclusion  = document.getElementById('text-conclusion');
 const textBackground  = document.getElementById('text-background');
 const textNext        = document.getElementById('text-next');
+const countConclusion = document.getElementById('count-conclusion');
+const countBackground = document.getElementById('count-background');
+const countNext       = document.getElementById('count-next');
 
 // ─── Tab / state management ───────────────────────────────────────────────────
 let activeTab          = 'summarize';
@@ -433,6 +436,13 @@ function buildQAMessages(question, lang) {
 }
 
 // ─── Stream parser ────────────────────────────────────────────────────────────
+function updateCharCounts() {
+  const fmt = (n) => n > 0 ? String(n) : '';
+  countConclusion.textContent = fmt(textConclusion.textContent.length);
+  countBackground.textContent = fmt(textBackground.textContent.length);
+  countNext.textContent       = fmt(textNext.textContent.length);
+}
+
 function renderSummaryStream(raw, lang) {
   const lc = getLangConfig(lang);
   for (const line of raw.split('\n')) {
@@ -441,6 +451,7 @@ function renderSummaryStream(raw, lang) {
     else if (lc.re[1].test(t)) textBackground.textContent = t.replace(lc.re[1], '');
     else if (lc.re[2].test(t)) textNext.textContent       = t.replace(lc.re[2], '');
   }
+  updateCharCounts();
 }
 
 // ─── Generic SSE streaming ────────────────────────────────────────────────────
@@ -526,6 +537,9 @@ async function summarize() {
   textConclusion.textContent = '';
   textBackground.textContent = '';
   textNext.textContent       = '';
+  countConclusion.textContent = '';
+  countBackground.textContent = '';
+  countNext.textContent       = '';
   const streamEls = [textConclusion, textBackground, textNext];
   streamEls.forEach((el) => el.classList.add('streaming'));
   showState('result');

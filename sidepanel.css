@@ -397,6 +397,17 @@ main {
 .card-background .card-icon  { color: var(--accent-green); }
 .card-next       .card-icon  { color: var(--accent-purple); }
 
+.card-char-count {
+  margin-left: auto;
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--text-muted);
+  opacity: 0.75;
+  min-width: 1em;
+  text-align: right;
+}
+
 .card-text {
   color: var(--text-primary);
   line-height: 1.7;
