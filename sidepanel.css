@@ -814,7 +814,8 @@ main {
 }
 
 .btn-he-expand,
-.btn-he-delete {
+.btn-he-delete,
+.btn-he-pin {
   background: none;
   border: none;
   cursor: pointer;
@@ -828,6 +829,9 @@ main {
 }
 .btn-he-expand:hover { color: var(--text-primary); }
 .btn-he-delete:hover { color: #f87171; background: rgba(248, 113, 113, 0.1); }
+.btn-he-pin         { opacity: 0.35; }
+.btn-he-pin:hover   { opacity: 0.75; color: var(--accent-amber); }
+.btn-he-pin.active  { opacity: 1; color: var(--accent-amber); }
 
 /* Collapsed snippet */
 .h-snippet {

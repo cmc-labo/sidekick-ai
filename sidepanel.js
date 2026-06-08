@@ -101,10 +101,13 @@ const UI_STRINGS = {
     btnClearSearchTitle:      'Clear',
     btnClearAllTitle:         'Delete all history',
     historyEmptyText:         'Summaries you read will appear here',
+    historyGroupPinned:       'Pinned',
     historyGroupToday:        'Today',
     historyGroupYesterday:    'Yesterday',
     historyGroupThisWeek:     'This Week',
     historyGroupOlder:        'Older',
+    btnPinTitle:              'Pin to top',
+    btnUnpinTitle:            'Unpin',
     btnExpandTitle:           'Expand',
     btnDeleteTitle:           'Delete',
     btnMarkdownText:          '⊕ Markdown',
@@ -145,10 +148,13 @@ const UI_STRINGS = {
     btnClearSearchTitle:      'クリア',
     btnClearAllTitle:         '全履歴を削除',
     historyEmptyText:         '要約した記事が履歴に表示されます',
+    historyGroupPinned:       'ピン留め',
     historyGroupToday:        '今日',
     historyGroupYesterday:    '昨日',
     historyGroupThisWeek:     '今週',
     historyGroupOlder:        'それ以前',
+    btnPinTitle:              'ピン留め',
+    btnUnpinTitle:            'ピン留めを解除',
     btnExpandTitle:           '展開',
     btnDeleteTitle:           '削除',
     btnMarkdownText:          '⊕ Markdown',
@@ -189,10 +195,13 @@ const UI_STRINGS = {
     btnClearSearchTitle:      '清除',
     btnClearAllTitle:         '删除所有历史',
     historyEmptyText:         '已摘要的文章将显示在这里',
+    historyGroupPinned:       '置顶',
     historyGroupToday:        '今天',
     historyGroupYesterday:    '昨天',
     historyGroupThisWeek:     '本周',
     historyGroupOlder:        '更早',
+    btnPinTitle:              '置顶',
+    btnUnpinTitle:            '取消置顶',
     btnExpandTitle:           '展开',
     btnDeleteTitle:           '删除',
     btnMarkdownText:          '⊕ Markdown',
@@ -656,8 +665,10 @@ async function saveToHistory(title, url, conclusion, background, nextAction, lan
     savedAt: Date.now(),
   };
   const idx = hist.findIndex((e) => e.url === url);
-  if (idx >= 0) hist[idx] = entry;
-  else { hist.unshift(entry); hist.length = Math.min(hist.length, MAX_ENTRIES); }
+  if (idx >= 0) {
+    entry.pinned = hist[idx].pinned || false;
+    hist[idx] = entry;
+  } else { hist.unshift(entry); hist.length = Math.min(hist.length, MAX_ENTRIES); }
   await chrome.storage.local.set({ [HISTORY_KEY]: hist });
   return hist.length;
 }
@@ -667,6 +678,14 @@ async function deleteHistoryEntry(id) {
   const updated = hist.filter((e) => e.id !== id);
   await chrome.storage.local.set({ [HISTORY_KEY]: updated });
   return updated.length;
+}
+
+async function togglePin(id) {
+  const { [HISTORY_KEY]: hist = [] } = await chrome.storage.local.get(HISTORY_KEY);
+  const entry = hist.find((e) => e.id === id);
+  if (entry) entry.pinned = !entry.pinned;
+  await chrome.storage.local.set({ [HISTORY_KEY]: hist });
+  loadAndRenderHistory(historySearch.value);
 }
 
 async function clearAllHistory() {
@@ -723,15 +742,26 @@ function renderHistoryList(entries) {
   historyList.innerHTML = '';
   if (!entries.length) { historyEmpty.classList.remove('hidden'); return; }
   historyEmpty.classList.add('hidden');
-  for (const group of groupByDate(entries)) {
+
+  const pinned   = entries.filter((e) => e.pinned);
+  const unpinned = entries.filter((e) => !e.pinned);
+
+  const makeGroup = (label, items) => {
     const groupEl = document.createElement('div');
     groupEl.className = 'history-group';
     const hdr = document.createElement('div');
     hdr.className   = 'history-group-label';
-    hdr.textContent = group.label;
+    hdr.textContent = label;
     groupEl.appendChild(hdr);
-    group.items.forEach((e) => groupEl.appendChild(renderHistoryEntry(e)));
+    items.forEach((e) => groupEl.appendChild(renderHistoryEntry(e)));
     historyList.appendChild(groupEl);
+  };
+
+  if (pinned.length) {
+    makeGroup(getUIStrings(currentUILang).historyGroupPinned, pinned);
+  }
+  for (const group of groupByDate(unpinned)) {
+    makeGroup(group.label, group.items);
   }
 }
 
@@ -771,6 +801,11 @@ function renderHistoryEntry(entry) {
 
   meta.append(titleEl, sub);
 
+  const btnPin = document.createElement('button');
+  btnPin.className   = `btn-he-pin${entry.pinned ? ' active' : ''}`;
+  btnPin.title       = entry.pinned ? ui.btnUnpinTitle : ui.btnPinTitle;
+  btnPin.textContent = '★';
+
   const btnExpand = document.createElement('button');
   btnExpand.className   = 'btn-he-expand';
   btnExpand.title       = ui.btnExpandTitle;
@@ -781,7 +816,7 @@ function renderHistoryEntry(entry) {
   btnDel.title       = ui.btnDeleteTitle;
   btnDel.textContent = '✕';
 
-  top.append(fav, meta, btnExpand, btnDel);
+  top.append(fav, meta, btnPin, btnExpand, btnDel);
 
   // Snippet
   const snippet = document.createElement('div');
@@ -835,7 +870,13 @@ function renderHistoryEntry(entry) {
     btnExpand.textContent = isOpen ? '▾' : '▴';
     el.classList.toggle('expanded', !isOpen);
   }
-  top.addEventListener('click', (e) => { if (e.target !== btnDel) toggleExpand(); });
+  top.addEventListener('click', (e) => { if (e.target !== btnDel && e.target !== btnPin) toggleExpand(); });
+
+  // Pin / Unpin
+  btnPin.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    await togglePin(entry.id);
+  });
 
   // Delete
   btnDel.addEventListener('click', async (e) => {
