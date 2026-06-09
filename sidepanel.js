@@ -463,12 +463,24 @@ function renderSummaryStream(raw, lang) {
   updateCharCounts();
 }
 
+// ─── Token cost map (USD per 1M tokens) ──────────────────────────────────────
+const TOKEN_COST = {
+  'gpt-4.1-nano': { input: 0.10, output: 0.40 },
+  'gpt-4.1-mini': { input: 0.40, output: 1.60 },
+  'gpt-4o-mini':  { input: 0.15, output: 0.60 },
+  'gpt-4.1':      { input: 2.00, output: 8.00 },
+  'gpt-4o':       { input: 2.50, output: 10.00 },
+};
+
 // ─── Generic SSE streaming ────────────────────────────────────────────────────
 async function streamTokens(apiKey, model, messages, maxTokens, onDelta) {
   const response = await fetch(OPENAI_API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-    body: JSON.stringify({ model, messages, stream: true, max_tokens: maxTokens, temperature: 0.2 }),
+    body: JSON.stringify({
+      model, messages, stream: true, max_tokens: maxTokens, temperature: 0.2,
+      stream_options: { include_usage: true },
+    }),
   });
 
   if (!response.ok) {
@@ -481,6 +493,7 @@ async function streamTokens(apiKey, model, messages, maxTokens, onDelta) {
   const reader = response.body.getReader();
   const dec    = new TextDecoder();
   let buffer   = '';
+  let usage    = null;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -491,13 +504,16 @@ async function streamTokens(apiKey, model, messages, maxTokens, onDelta) {
     for (const line of lines) {
       if (!line.startsWith('data: ')) continue;
       const data = line.slice(6).trim();
-      if (data === '[DONE]') return;
+      if (data === '[DONE]') return usage;
       try {
-        const delta = JSON.parse(data).choices?.[0]?.delta?.content ?? '';
+        const parsed = JSON.parse(data);
+        const delta = parsed.choices?.[0]?.delta?.content ?? '';
         if (delta) onDelta(delta);
+        if (parsed.usage) usage = parsed.usage;
       } catch {}
     }
   }
+  return usage;
 }
 
 // ─── Summarize ────────────────────────────────────────────────────────────────
@@ -505,6 +521,7 @@ async function summarize() {
   btnSummarize.disabled = true;
   btnRetry.disabled     = true;
   pageInfo.classList.add('hidden');
+  clearTokenInfo();
 
   const [{ openai_api_key, openai_model, output_language }, [tab]] = await Promise.all([
     chrome.storage.local.get(['openai_api_key', 'openai_model', 'output_language']),
@@ -554,8 +571,9 @@ async function summarize() {
   showState('result');
 
   let accumulated = '';
+  let usage = null;
   try {
-    await streamTokens(openai_api_key, model, buildSummaryMessages(title, text, lang), 250, (delta) => {
+    usage = await streamTokens(openai_api_key, model, buildSummaryMessages(title, text, lang), 250, (delta) => {
       accumulated += delta;
       renderSummaryStream(accumulated, lang);
     });
@@ -572,6 +590,7 @@ async function summarize() {
   }
 
   streamEls.forEach((el) => el.classList.remove('streaming'));
+  showTokenInfo(usage, model);
 
   const lc = getLangConfig(lang);
   currentSummary = [
@@ -919,6 +938,26 @@ function buildMarkdown(entry) {
 function getFaviconUrl(url) {
   try { return `https://www.google.com/s2/favicons?sz=16&domain=${new URL(url).hostname}`; }
   catch { return ''; }
+}
+
+// ─── Token info display ───────────────────────────────────────────────────────
+const tokenInfoEl = document.getElementById('token-info');
+
+function showTokenInfo(usage, model) {
+  if (!usage || !tokenInfoEl) return;
+  const { prompt_tokens = 0, completion_tokens = 0, total_tokens = 0 } = usage;
+  const cost = TOKEN_COST[model];
+  let parts = [`${total_tokens.toLocaleString()} tokens`];
+  if (cost) {
+    const usd = (prompt_tokens * cost.input + completion_tokens * cost.output) / 1_000_000;
+    parts.push(`$${usd.toFixed(5)}`);
+  }
+  tokenInfoEl.textContent = parts.join(' · ');
+  tokenInfoEl.classList.remove('hidden');
+}
+
+function clearTokenInfo() {
+  if (tokenInfoEl) { tokenInfoEl.textContent = ''; tokenInfoEl.classList.add('hidden'); }
 }
 
 // ─── Copy summary ─────────────────────────────────────────────────────────────

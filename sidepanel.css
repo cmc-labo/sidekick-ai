@@ -429,7 +429,15 @@ main {
 .result-actions {
   display: flex;
   gap: 8px;
-  padding: 0 14px 14px;
+  padding: 0 14px 8px;
+}
+
+.token-info {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: right;
+  padding: 0 14px 10px;
+  opacity: 0.8;
 }
 
 /* ============================================================
