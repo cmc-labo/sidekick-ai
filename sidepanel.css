@@ -540,6 +540,32 @@ main {
   border: 1px solid var(--border);
   align-self: flex-start;
   border-bottom-left-radius: 4px;
+  position: relative;
+}
+
+.qa-bubble-copy {
+  position: absolute;
+  bottom: -9px;
+  right: 8px;
+  padding: 1px 7px;
+  font-size: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--transition), color var(--transition), border-color var(--transition);
+  line-height: 1.6;
+}
+
+.qa-bubble-assistant:hover .qa-bubble-copy:not(.hidden) {
+  opacity: 1;
+}
+
+.qa-bubble-copy:hover {
+  color: var(--accent-green);
+  border-color: var(--accent-green);
 }
 
 .qa-bubble.streaming::after {

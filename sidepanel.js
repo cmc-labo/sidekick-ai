@@ -634,22 +634,24 @@ async function handleAsk() {
   const ui     = getUIStrings(lang);
   let   answer = '';
 
+  const answerTextEl = answerBubble.querySelector('.qa-bubble-text') ?? answerBubble;
   try {
     await streamTokens(
       openai_api_key, openai_model || DEFAULT_MODEL,
       buildQAMessages(question, lang), 400,
       (delta) => {
         answer += delta;
-        answerBubble.textContent = answer;
+        answerTextEl.textContent = answer;
         qaHistory.scrollTop = qaHistory.scrollHeight;
       }
     );
     chatHistory.push({ role: 'user',      content: question });
     chatHistory.push({ role: 'assistant', content: answer   });
+    answerBubble.querySelector('.qa-bubble-copy')?.classList.remove('hidden');
   } catch (err) {
     let msg = ui.errorQAPrefix + err.message;
     if (err.httpStatus === 401) msg = ui.errorAuth;
-    answerBubble.textContent = msg;
+    answerTextEl.textContent = msg;
     answerBubble.classList.add('bubble-error');
   } finally {
     answerBubble.classList.remove('streaming');
@@ -664,8 +666,25 @@ function addBubble(role, content) {
   qaHistory.querySelector('.qa-placeholder')?.remove();
   btnClearQA.classList.remove('hidden');
   const bubble = document.createElement('div');
-  bubble.className   = `qa-bubble qa-bubble-${role}`;
-  bubble.textContent = content;
+  bubble.className = `qa-bubble qa-bubble-${role}`;
+  if (role === 'assistant') {
+    const textSpan = document.createElement('span');
+    textSpan.className   = 'qa-bubble-text';
+    textSpan.textContent = content;
+    const copyBtn = document.createElement('button');
+    copyBtn.className   = 'qa-bubble-copy hidden';
+    copyBtn.textContent = '⊕';
+    copyBtn.title       = 'Copy';
+    copyBtn.addEventListener('click', async () => {
+      const text = bubble.querySelector('.qa-bubble-text')?.textContent ?? '';
+      await navigator.clipboard.writeText(text).catch(() => {});
+      copyBtn.textContent = '✓';
+      setTimeout(() => { copyBtn.textContent = '⊕'; }, 1500);
+    });
+    bubble.append(textSpan, copyBtn);
+  } else {
+    bubble.textContent = content;
+  }
   qaHistory.appendChild(bubble);
   qaHistory.scrollTop = qaHistory.scrollHeight;
   return bubble;
