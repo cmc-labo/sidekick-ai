@@ -126,6 +126,11 @@ const UI_STRINGS = {
     errorServerError:         'OpenAI server error. Please try again later.',
     errorQAPrefix:            'Error: ',
     dateLocale:               'en-US',
+    btnHelpTitle:             'Keyboard Shortcuts',
+    shortcutsTitle:           'Keyboard Shortcuts',
+    shortcutOpenPanel:        'Open Side Panel',
+    shortcutCopySummary:      'Copy Summary',
+    shortcutSendQA:           'Send Question',
   },
   ja: {
     btnSettingsTitle:         '設定 (APIキー)',
@@ -173,6 +178,11 @@ const UI_STRINGS = {
     errorServerError:         'OpenAIサーバーエラーです。時間をおいて再試行してください。',
     errorQAPrefix:            'エラー: ',
     dateLocale:               'ja-JP',
+    btnHelpTitle:             'キーボードショートカット',
+    shortcutsTitle:           'キーボードショートカット',
+    shortcutOpenPanel:        'サイドパネルを開く',
+    shortcutCopySummary:      '要約をコピー',
+    shortcutSendQA:           'Q&Aを送信',
   },
   zh: {
     btnSettingsTitle:         '设置',
@@ -220,6 +230,11 @@ const UI_STRINGS = {
     errorServerError:         'OpenAI 服务器错误。请稍后重试。',
     errorQAPrefix:            '错误: ',
     dateLocale:               'zh-CN',
+    btnHelpTitle:             '键盘快捷键',
+    shortcutsTitle:           '键盘快捷键',
+    shortcutOpenPanel:        '打开侧面板',
+    shortcutCopySummary:      '复制摘要',
+    shortcutSendQA:           '发送问题',
   },
 };
 
@@ -248,6 +263,10 @@ const tabHistory      = document.getElementById('tab-history');
 const historyBadge    = document.getElementById('history-badge');
 const btnSummarize    = document.getElementById('btn-summarize');
 const btnSettings     = document.getElementById('btn-settings');
+const btnHelp         = document.getElementById('btn-help');
+const shortcutsModal  = document.getElementById('shortcuts-modal');
+const shortcutsTitle  = document.getElementById('shortcuts-title');
+const shortcutsBody   = document.getElementById('shortcuts-body');
 const btnWarnSettings = document.getElementById('btn-warning-settings');
 const btnCopy         = document.getElementById('btn-copy');
 const btnRetry        = document.getElementById('btn-retry');
@@ -326,6 +345,7 @@ function applyUIStrings(lang) {
   const ui = getUIStrings(lang);
 
   btnSettings.title  = ui.btnSettingsTitle;
+  btnHelp.title      = ui.btnHelpTitle;
   document.getElementById('summarize-label').textContent = ui.btnSummarize;
   btnSummarize.title = ui.btnSummarizeTitle;
 
@@ -353,7 +373,60 @@ function applyUIStrings(lang) {
   document.getElementById('history-empty-text').textContent = ui.historyEmptyText;
 
   btnGotoSettings.textContent = ui.btnGotoSettings;
+  renderShortcuts(lang);
 }
+
+// ─── Keyboard shortcuts panel ─────────────────────────────────────────────────
+const isMac = /mac/i.test(navigator.userAgentData?.platform ?? navigator.userAgent);
+const MOD   = isMac ? '⌘' : 'Ctrl';
+
+const SHORTCUTS = [
+  { descKey: 'shortcutOpenPanel',   keys: [MOD, 'Shift', 'S'] },
+  { descKey: 'shortcutCopySummary', keys: [MOD, 'C'] },
+  { descKey: 'shortcutSendQA',      keys: ['Enter'] },
+];
+
+function renderShortcuts(lang) {
+  if (!shortcutsBody) return;
+  const ui = getUIStrings(lang);
+  if (shortcutsTitle) shortcutsTitle.textContent = ui.shortcutsTitle;
+  shortcutsBody.innerHTML = '';
+  for (const { descKey, keys } of SHORTCUTS) {
+    const tr = document.createElement('tr');
+    const tdDesc = document.createElement('td');
+    tdDesc.className   = 'sc-desc';
+    tdDesc.textContent = ui[descKey] ?? descKey;
+    const tdKeys = document.createElement('td');
+    tdKeys.className = 'sc-keys';
+    keys.forEach((k, i) => {
+      if (i > 0) tdKeys.append('+');
+      const kbd = document.createElement('kbd');
+      kbd.textContent = k;
+      tdKeys.appendChild(kbd);
+    });
+    tr.append(tdDesc, tdKeys);
+    shortcutsBody.appendChild(tr);
+  }
+}
+
+function toggleShortcuts(e) {
+  e.stopPropagation();
+  shortcutsModal.classList.toggle('hidden');
+}
+
+btnHelp.addEventListener('click', toggleShortcuts);
+document.getElementById('btn-close-shortcuts').addEventListener('click', (e) => {
+  e.stopPropagation();
+  shortcutsModal.classList.add('hidden');
+});
+document.addEventListener('click', (e) => {
+  if (!shortcutsModal.classList.contains('hidden') && !shortcutsModal.contains(e.target)) {
+    shortcutsModal.classList.add('hidden');
+  }
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') shortcutsModal.classList.add('hidden');
+});
 
 // ─── Card label update ────────────────────────────────────────────────────────
 const CARD_ICONS = ['◆', '◇', '▷'];

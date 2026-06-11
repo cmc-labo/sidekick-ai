@@ -14,6 +14,7 @@
       <span class="header-title">Sidekick AI</span>
     </div>
     <div class="header-right">
+      <button id="btn-help" class="btn-icon-only" title="Keyboard Shortcuts">?</button>
       <button id="btn-settings" class="btn-icon-only" title="Settings">⚙</button>
       <button id="btn-summarize" class="btn-primary" title="Summarize this page">
         <span class="btn-icon">▶</span>
@@ -185,6 +186,17 @@ and click "Summarize"</p>
   <footer class="footer">
     <span>Powered by OpenAI API</span>
   </footer>
+
+  <!-- Keyboard shortcuts panel -->
+  <div id="shortcuts-modal" class="shortcuts-modal hidden" role="dialog">
+    <div class="shortcuts-header">
+      <span id="shortcuts-title">Keyboard Shortcuts</span>
+      <button id="btn-close-shortcuts" class="btn-icon-only btn-sm">✕</button>
+    </div>
+    <table class="shortcuts-table">
+      <tbody id="shortcuts-body"></tbody>
+    </table>
+  </div>
 
   <script src="sidepanel.js"></script>
 </body>
