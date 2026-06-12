@@ -522,6 +522,28 @@ main {
   max-height: 270px; /* roughly 3 cards; user can scroll if content is taller */
 }
 
+.summary-progress {
+  height: 3px;
+  background: var(--border);
+  margin: 8px 14px 4px;
+  border-radius: 2px;
+  overflow: hidden;
+  opacity: 1;
+  transition: opacity 0.4s ease;
+}
+
+.summary-progress.progress-fade {
+  opacity: 0;
+}
+
+.summary-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: var(--accent-blue);
+  border-radius: 2px;
+  transition: width 0.45s ease;
+}
+
 /* ============================================================
    QA Chat
    ============================================================ */

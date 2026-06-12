@@ -293,8 +293,10 @@ const textConclusion  = document.getElementById('text-conclusion');
 const textBackground  = document.getElementById('text-background');
 const textNext        = document.getElementById('text-next');
 const countConclusion = document.getElementById('count-conclusion');
-const countBackground = document.getElementById('count-background');
-const countNext       = document.getElementById('count-next');
+const countBackground    = document.getElementById('count-background');
+const countNext          = document.getElementById('count-next');
+const summaryProgressEl  = document.getElementById('summary-progress');
+const summaryProgressBar = document.getElementById('summary-progress-bar');
 
 // ─── Tab / state management ───────────────────────────────────────────────────
 let activeTab          = 'summarize';
@@ -525,6 +527,8 @@ function updateCharCounts() {
   countNext.textContent       = fmt(textNext.textContent.length);
 }
 
+const PROGRESS_STEPS = [5, 40, 70, 95];
+
 function renderSummaryStream(raw, lang) {
   const lc = getLangConfig(lang);
   for (const line of raw.split('\n')) {
@@ -534,6 +538,8 @@ function renderSummaryStream(raw, lang) {
     else if (lc.re[2].test(t)) textNext.textContent       = t.replace(lc.re[2], '');
   }
   updateCharCounts();
+  const done = [textConclusion, textBackground, textNext].filter((el) => el.textContent.trim()).length;
+  setSummaryProgress(PROGRESS_STEPS[done]);
 }
 
 // ─── Token cost map (USD per 1M tokens) ──────────────────────────────────────
@@ -642,6 +648,7 @@ async function summarize() {
   const streamEls = [textConclusion, textBackground, textNext];
   streamEls.forEach((el) => el.classList.add('streaming'));
   showState('result');
+  showSummaryProgress();
 
   let accumulated = '';
   let usage = null;
@@ -657,12 +664,14 @@ async function summarize() {
     else if (err.httpStatus === 429) msg = ui.errorRateLimit;
     else if (err.httpStatus === 500) msg = ui.errorServerError;
     else msg = ui.errorSummarize + err.message;
+    hideSummaryProgress();
     showError(msg, isAuth);
     streamEls.forEach((el) => el.classList.remove('streaming'));
     enableSummarizeButtons(); return;
   }
 
   streamEls.forEach((el) => el.classList.remove('streaming'));
+  setSummaryProgress(100);
   showTokenInfo(usage, model);
 
   const lc = getLangConfig(lang);
@@ -1050,6 +1059,39 @@ function showTokenInfo(usage, model) {
 
 function clearTokenInfo() {
   if (tokenInfoEl) { tokenInfoEl.textContent = ''; tokenInfoEl.classList.add('hidden'); }
+}
+
+// ─── Summary progress bar ─────────────────────────────────────────────────────
+let _progressFadeTimer = null;
+
+function showSummaryProgress() {
+  clearTimeout(_progressFadeTimer);
+  summaryProgressEl.classList.remove('hidden', 'progress-fade');
+  summaryProgressBar.style.transition = 'none';
+  summaryProgressBar.style.width = '0%';
+  requestAnimationFrame(() => {
+    summaryProgressBar.style.transition = '';
+    summaryProgressBar.style.width = '5%';
+  });
+}
+
+function setSummaryProgress(pct) {
+  summaryProgressBar.style.width = pct + '%';
+  if (pct >= 100) {
+    _progressFadeTimer = setTimeout(() => {
+      summaryProgressEl.classList.add('progress-fade');
+      _progressFadeTimer = setTimeout(() => {
+        summaryProgressEl.classList.add('hidden');
+        summaryProgressEl.classList.remove('progress-fade');
+      }, 400);
+    }, 300);
+  }
+}
+
+function hideSummaryProgress() {
+  clearTimeout(_progressFadeTimer);
+  summaryProgressEl.classList.add('hidden');
+  summaryProgressEl.classList.remove('progress-fade');
 }
 
 // ─── Copy summary ─────────────────────────────────────────────────────────────
