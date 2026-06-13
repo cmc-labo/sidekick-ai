@@ -1017,6 +1017,37 @@ main {
 /* ============================================================
    Footer
    ============================================================ */
+/* ============================================================
+   Toast notification
+   ============================================================ */
+.toast {
+  position: fixed;
+  bottom: 36px;
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  background: var(--bg-card);
+  border: 1px solid var(--accent-green);
+  color: var(--accent-green);
+  font-size: 12px;
+  padding: 6px 16px;
+  border-radius: 20px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 300;
+  opacity: 0;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.toast.toast-show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.toast.toast-hide {
+  opacity: 0;
+  transform: translateX(-50%) translateY(4px);
+}
+
 .footer {
   padding: 8px 14px;
   border-top: 1px solid var(--border);

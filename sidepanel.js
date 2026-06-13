@@ -126,6 +126,7 @@ const UI_STRINGS = {
     errorServerError:         'OpenAI server error. Please try again later.',
     errorQAPrefix:            'Error: ',
     dateLocale:               'en-US',
+    toastSummaryDone:         '✓ Summary complete',
     btnHelpTitle:             'Keyboard Shortcuts',
     shortcutsTitle:           'Keyboard Shortcuts',
     shortcutOpenPanel:        'Open Side Panel',
@@ -178,6 +179,7 @@ const UI_STRINGS = {
     errorServerError:         'OpenAIサーバーエラーです。時間をおいて再試行してください。',
     errorQAPrefix:            'エラー: ',
     dateLocale:               'ja-JP',
+    toastSummaryDone:         '✓ 要約が完了しました',
     btnHelpTitle:             'キーボードショートカット',
     shortcutsTitle:           'キーボードショートカット',
     shortcutOpenPanel:        'サイドパネルを開く',
@@ -230,6 +232,7 @@ const UI_STRINGS = {
     errorServerError:         'OpenAI 服务器错误。请稍后重试。',
     errorQAPrefix:            '错误: ',
     dateLocale:               'zh-CN',
+    toastSummaryDone:         '✓ 摘要已完成',
     btnHelpTitle:             '键盘快捷键',
     shortcutsTitle:           '键盘快捷键',
     shortcutOpenPanel:        '打开侧面板',
@@ -297,6 +300,7 @@ const countBackground    = document.getElementById('count-background');
 const countNext          = document.getElementById('count-next');
 const summaryProgressEl  = document.getElementById('summary-progress');
 const summaryProgressBar = document.getElementById('summary-progress-bar');
+const toastEl            = document.getElementById('toast');
 
 // ─── Tab / state management ───────────────────────────────────────────────────
 let activeTab          = 'summarize';
@@ -672,6 +676,7 @@ async function summarize() {
 
   streamEls.forEach((el) => el.classList.remove('streaming'));
   setSummaryProgress(100);
+  showToast(getUIStrings(lang).toastSummaryDone);
   showTokenInfo(usage, model);
 
   const lc = getLangConfig(lang);
@@ -1092,6 +1097,21 @@ function hideSummaryProgress() {
   clearTimeout(_progressFadeTimer);
   summaryProgressEl.classList.add('hidden');
   summaryProgressEl.classList.remove('progress-fade');
+}
+
+// ─── Toast notification ───────────────────────────────────────────────────────
+let _toastTimer = null;
+
+function showToast(msg, durationMs = 2500) {
+  clearTimeout(_toastTimer);
+  toastEl.textContent = msg;
+  toastEl.classList.remove('hidden', 'toast-hide');
+  toastEl.classList.add('toast-show');
+  _toastTimer = setTimeout(() => {
+    toastEl.classList.remove('toast-show');
+    toastEl.classList.add('toast-hide');
+    _toastTimer = setTimeout(() => toastEl.classList.add('hidden'), 350);
+  }, durationMs);
 }
 
 // ─── Copy summary ─────────────────────────────────────────────────────────────
